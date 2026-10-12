@@ -10,7 +10,7 @@
 
 opencode-mcp connects Claude, Cursor, VS Code, and other MCP clients to OpenCode's headless API. Ask questions, implement features, monitor background work, respond to questions and permissions, and review changes across projects.
 
-> Version 3.0.0 requires **Node.js 22 or newer**. Upgrading from 2.x? See the [migration notes](CHANGELOG.md#300---2026-09-16).
+> This fork declares **Node.js 24.x** (`>=24.0.0 <25`); upstream 3.0.0 historically required Node.js 22 or newer, which this fork no longer supports. The CI workflow is configured for exactly Node.js 24.18.0 with npm 12.0.1 on Ubuntu; it has not yet run on this change, so this is a configuration target, not a CI result. Qualification is incomplete (see [FORK.md](FORK.md)). Upgrading from 2.x? See the [migration notes](CHANGELOG.md#300---2026-09-16).
 
 This source branch adds an OpenCode V1/V2 compatibility foundation. It retains the V1 API and adds the pinned V2 client contract. V2 currently maps **64 tools**, keeps **22 V1-only exceptions**, and blocks **1 command operation** whose completion cannot be correlated safely. See the [generated compatibility inventory](docs/compatibility.md) and [V1/V2 migration guide](MIGRATION.md). This is not a claim that every live backend workflow has been verified.
 

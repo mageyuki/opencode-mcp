@@ -2,7 +2,7 @@
 
 ## Environment Variables
 
-An OpenCode server must already be running unless automatic startup is explicitly enabled. Node.js 22 or newer is required for version 3.0.0 and later.
+An OpenCode server must already be running unless automatic startup is explicitly enabled. This fork declares Node.js 24.x (`>=24.0.0 <25`); upstream 3.0.0 historically required Node.js 22 or newer. The CI workflow is configured only for exact Node.js 24.18.0 with npm 12.0.1 (a configuration target, not a CI result; see [FORK.md](../FORK.md)).
 
 | Variable | Default | Description |
 |---|---|---|

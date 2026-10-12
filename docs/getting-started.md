@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js **22 or newer** for version 3.0.0 and later.
+- Node.js **24.x** (`>=24.0.0 <25`) for this fork. Upstream 3.0.0 historically required Node.js 22 or newer; this fork's CI workflow is configured only for exact Node.js 24.18.0 with npm 12.0.1 (a configuration target, not a CI result; see [FORK.md](../FORK.md)).
 - [OpenCode](https://opencode.ai/docs/) installed and a provider configured for model calls.
 - An MCP client capable of launching a stdio server.
 
@@ -61,7 +61,7 @@ Configure matching `OPENCODE_SERVER_USERNAME` and `OPENCODE_SERVER_PASSWORD` val
 
 ### Tools missing
 
-Restart the MCP connection after editing settings. Check the client's MCP logs and verify Node.js 22 or newer is available to the client. If `OPENCODE_TOOL_PROFILE=essential`, specialist tools are intentionally omitted; select `full` when needed.
+Restart the MCP connection after editing settings. Check the client's MCP logs and verify Node.js 24.x is available to the client. If `OPENCODE_TOOL_PROFILE=essential`, specialist tools are intentionally omitted; select `full` when needed.
 
 ### Work stopped after closing the client
 

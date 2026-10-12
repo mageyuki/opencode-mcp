@@ -85,7 +85,7 @@ The runner sends a text-only request through `opencode_fire`, checks progress, w
    npm run test:package
    npm run test:compat
    ```
-   Confirm the required CI matrix passed on the exact release commit. Record the tested OpenCode version. The default fixture smoke checks should pass; explicitly select a provider/model when validating inference. Record skipped live capabilities accurately.
+   Confirm the required CI run (Ubuntu, Node.js 24.18.0, npm 12.0.1) passed on the exact release commit. Record the tested OpenCode version. The default fixture smoke checks should pass; explicitly select a provider/model when validating inference. Record skipped live capabilities accurately.
 
 4. **Inspect and test the actual archive.**
    ```bash

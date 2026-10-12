@@ -61,7 +61,7 @@
     "tag": "rc"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0 <25"
   },
   "dependencies": {
     "@modelcontextprotocol/core": "^2.0.0",

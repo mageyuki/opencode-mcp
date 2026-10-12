@@ -27,7 +27,7 @@
         "vitest": "^4.0.18"
       },
       "engines": {
-        "node": ">=22.0.0"
+        "node": ">=24.0.0 <25"
       }
     },
     "node_modules/@babel/helper-string-parser": {
