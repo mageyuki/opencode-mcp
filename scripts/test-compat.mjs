@@ -246,7 +246,10 @@ async function checkBackend(kind, root, installed, options) {
   const env = await isolatedEnvironment(workspace);
   const installation = join(workspace, "installation"), project = join(workspace, "project");
   await mkdir(installation); await mkdir(project);
-  await writeFile(join(installation, "package.json"), JSON.stringify({ private: true, name: `compat-${kind}` }));
+  // npm 12 blocks dependency lifecycle scripts unless the project root approves them. Approve only this
+  // backend's exact package@version, inside the disposable installation root (no wildcard, name-only or global policy).
+  await writeFile(join(installation, "package.json"), JSON.stringify({ private: true, name: `compat-${kind}`,
+    allowScripts: { [`${target.package}@${target.version}`]: true } }));
   const marker = `opencode-mcp-live-${kind}-${target.version}`;
   await writeFile(join(project, "README.md"), `${marker}\n`);
   // Explicit config lives only inside this disposable project/home.
