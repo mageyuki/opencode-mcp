@@ -23,7 +23,11 @@ Package-only differences from patch-applied source: package name/description/rep
 
 ## Why the version number is unchanged
 
-`3.1.0-rc.1` is the upstream base version. The scoped name is a distinct npm namespace, so it cannot collide with the unscoped `opencode-mcp` (whose published `latest` is 3.0.0; `3.1.0-rc.1` is not published there). The number records the base the fork derives from; the divergence is identified by the name, description, this file, and the README banner. Any later change to the shipped bytes needs a new version.
+`3.1.0-rc.1` is the upstream base version. The scoped name is a distinct npm namespace, so it cannot collide with the unscoped `opencode-mcp` (whose published `latest` is 3.0.0; `3.1.0-rc.1` is not published there). The number records the base the fork derives from; the divergence is identified by the name, description, this file, and the README banner. Published versions are immutable: changing their shipped bytes requires a new version. This still-unpublished candidate keeps `3.1.0-rc.1` and dist-tag `rc` under explicit user approval; repacking it records a new integrity (SRI), not a published-version replacement.
+
+## Independent fork maintenance policy
+
+The user maintains this fork independently and will not create upstream PRs. This environment will not use Windows, so Windows CI is outside its maintenance scope. CI retains Ubuntu/macOS × Node 22/24, including the unchanged Ubuntu Node 22 coverage and dependency vulnerability gates. This removes only the Windows CI matrix entry, not Windows runtime code, tests or inventory; it adds no package OS restriction or dependency change. It does not fix the known macOS `npm test` failures or Ubuntu Node 22 vulnerability-gate failure; their root details remain unknown.
 
 ## Shipped dependency lock (`dependency-lock.json`)
 
