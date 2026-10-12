@@ -27,7 +27,11 @@ Package-only differences from patch-applied source: package name/description/rep
 
 ## Independent fork maintenance policy
 
-The user maintains this fork independently and will not create upstream PRs. This environment will not use Windows, so Windows CI is outside its maintenance scope. CI retains Ubuntu/macOS × Node 22/24, including the unchanged Ubuntu Node 22 coverage and dependency vulnerability gates. This removes only the Windows CI matrix entry, not Windows runtime code, tests or inventory; it adds no package OS restriction or dependency change. It does not fix the known macOS `npm test` failures or Ubuntu Node 22 vulnerability-gate failure; their root details remain unknown.
+The user maintains this fork independently and will not create upstream PRs. This environment will not use Windows. After diagnosis, CI maintenance is limited to Ubuntu × Node 22/24, with the Ubuntu Node 22 coverage and dependency vulnerability gates unchanged. Windows and macOS CI exclusions do not remove runtime code, tests or inventory, add a package OS restriction, or change engines or dependencies.
+
+The retained guarded project-read and Herdr-origin features intentionally reject non-Linux systems: project-read uses a Linux guard and `/proc` descriptor checks, and Herdr-origin uses a Linux guard and `/proc` process evidence. In run `38258059893`, each macOS job had 29 failed, 941 passed and 3 skipped tests plus 2 unhandled errors across four files: Linux-assumption fixtures conflict with these Linux capability guards. Portability would require a separately approved security contract, not weakening the guards or changing the 33 patch postimages here.
+
+Controller-supplied diagnosis also found Ubuntu Node 24 passed tests/docs/package/compat (coverage and audit skipped), while Ubuntu Node 22 passed tests and coverage but failed the audit gate: 6 development-tree vulnerabilities (2 moderate, 3 high, 1 critical). Dependency remediation requires separate approval; this CI scope change neither fixes those vulnerabilities nor suppresses that gate. Node 22 stays maintained. The CI majors 22/24 are not exact-host qualification for Node 24.18.0/npm 12.0.1.
 
 ## Shipped dependency lock (`dependency-lock.json`)
 
