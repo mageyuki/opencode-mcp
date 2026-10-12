@@ -477,6 +477,18 @@ function redactUrlSecrets(url: string): string {
   }
 }
 
+/** Keep the display name distinct from the selector accepted by each backend. */
+export function formatAgentInfo(agent: Record<string, unknown>): string {
+  const selector = agent.id === undefined ? `V1 name selector: ${agent.name ?? "?"}` : `ID: ${agent.id}`;
+  return `${selector} | Name: ${agent.name ?? agent.id ?? "?"} [${agent.mode ?? "?"}]: ${agent.description ?? "(no description)"}`;
+}
+
+/** Preserve the startup warning rather than replacing it with its cause or a status. */
+export function startupFailureText(error: unknown): string | undefined {
+  if (!error || typeof error !== "object" || !("name" in error) || error.name !== "ExecutionStartFailed") return;
+  return `Error: ${JSON.stringify(error)}`;
+}
+
 /**
  * Redact values that look like API keys, tokens, or secrets.
  * Replaces the value with the first 4 characters + "***REDACTED***".

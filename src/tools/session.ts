@@ -67,7 +67,7 @@ export function registerSessionTools(
     {
       parentID: z.string().optional().describe("Parent session ID"),
       title: z.string().optional().describe("Session title"),
-      providerID: z.string().optional(), modelID: z.string().optional(), variant: z.string().optional(), agent: z.string().optional(),
+      providerID: z.string().optional(), modelID: z.string().optional(), variant: z.string().optional(), agent: z.string().optional().describe("Agent ID (V2 only; exact ID, not display name)"),
       directory: directoryParam,
     },
     async ({ parentID, title, providerID, modelID, variant, agent, directory }) => {

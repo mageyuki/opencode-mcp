@@ -1,7 +1,7 @@
 {
-  "name": "opencode-mcp",
+  "name": "@mageyuki/opencode-mcp",
   "version": "3.1.0-rc.1",
-  "description": "MCP server for OpenCode coding workflows, durable async jobs, project resources, and explicit user input",
+  "description": "Unofficial fork of opencode-mcp: MCP server for OpenCode coding workflows, durable async jobs, project resources, and explicit user input, with V2 live-observation and guarded project-read changes",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -13,7 +13,9 @@
     "LICENSE",
     "CHANGELOG.md",
     "MIGRATION.md",
-    "docs"
+    "docs",
+    "FORK.md",
+    "dependency-lock.json"
   ],
   "scripts": {
     "build": "tsc",
@@ -46,14 +48,18 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AlaeddineMessadi/opencode-mcp.git"
+    "url": "git+https://github.com/mageyuki/opencode-mcp.git"
   },
-  "homepage": "https://github.com/AlaeddineMessadi/opencode-mcp#readme",
+  "homepage": "https://github.com/mageyuki/opencode-mcp#readme",
   "bugs": {
-    "url": "https://github.com/AlaeddineMessadi/opencode-mcp/issues"
+    "url": "https://github.com/mageyuki/opencode-mcp/issues"
   },
   "author": "Alaeddine Messadi",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "tag": "rc"
+  },
   "engines": {
     "node": ">=22.0.0"
   },

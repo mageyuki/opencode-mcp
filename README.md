@@ -1,8 +1,10 @@
-# opencode-mcp
+# @mageyuki/opencode-mcp
 
-[![npm version](https://img.shields.io/npm/v/opencode-mcp)](https://www.npmjs.com/package/opencode-mcp)
-[![license](https://img.shields.io/github/license/AlaeddineMessadi/opencode-mcp)](LICENSE)
-[![node](https://img.shields.io/node/v/opencode-mcp)](https://nodejs.org/)
+[![npm version](https://img.shields.io/npm/v/@mageyuki/opencode-mcp?include_prereleases)](https://www.npmjs.com/package/@mageyuki/opencode-mcp)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![node](https://img.shields.io/node/v/@mageyuki/opencode-mcp)](https://nodejs.org/)
+
+> **Unofficial fork.** This package is not published or endorsed by the upstream author. It is derived from [AlaeddineMessadi/opencode-mcp](https://github.com/AlaeddineMessadi/opencode-mcp) commit `1b9552bebaf648e7dd989f3d48515d3c116c154e` plus one divergence patch (V2 live observation, execution evidence, guarded project read, Herdr origin marker). The upstream project and its `opencode-mcp` package are separate. Fork identity, exact differences, and the pending publication status are in [FORK.md](FORK.md). The fork repository exists; the npm registry links in this file stay pending until the package is actually published.
 
 **Delegate coding work to OpenCode from your MCP client.**
 
@@ -27,7 +29,7 @@ For V2, start OpenCode separately and supply its URL, or let this bridge discove
 For Claude Code:
 
 ```bash
-claude mcp add opencode -- npx -y opencode-mcp
+claude mcp add opencode -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
 ```
 
 For clients using an `mcpServers` configuration:
@@ -37,7 +39,7 @@ For clients using an `mcpServers` configuration:
   "mcpServers": {
     "opencode": {
       "command": "npx",
-      "args": ["-y", "opencode-mcp"]
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"]
     }
   }
 }

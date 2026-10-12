@@ -28,6 +28,7 @@ async function setup() {
     time: { created: 1, updated: 2 }, agent: "existing-agent", model: { providerID: "existing-provider", id: "existing-model", variant: "existing-variant" } };
   const event = (type: string, data: any = {}) => events.push({ type: `session.${type}`, durable: { aggregateID: session.id, seq: events.length + 1, version: 1 }, data: { sessionID: session.id, ...data } });
   const api: any = {
+    event: { subscribe: vi.fn(() => (async function* () { yield { type: "server.connected", data: {} }; await new Promise(() => {}); })()) },
     location: { get: vi.fn(async () => ({ directory: "/remote/project", project: { id: "project", directory: "/remote/project" } })) },
     session: {
       get: vi.fn(async () => session), create: vi.fn(), switchModel: vi.fn(), switchAgent: vi.fn(),

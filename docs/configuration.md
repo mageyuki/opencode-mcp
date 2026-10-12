@@ -40,13 +40,13 @@ These examples launch the published npm package. When testing a source build, re
 
 ```bash
 # Current project, private to your account
-claude mcp add opencode -- npx -y opencode-mcp
+claude mcp add opencode -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
 
 # Available across projects
-claude mcp add opencode --scope user -- npx -y opencode-mcp
+claude mcp add opencode --scope user -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
 
 # Custom endpoint
-claude mcp add opencode --env OPENCODE_BASE_URL=http://127.0.0.1:8080 -- npx -y opencode-mcp
+claude mcp add opencode --env OPENCODE_BASE_URL=http://127.0.0.1:8080 -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
 ```
 
 See [Claude Code MCP configuration](https://code.claude.com/docs/en/mcp) for scopes and environment expansion.
@@ -60,7 +60,7 @@ Use the following server entry in the client's MCP configuration:
   "mcpServers": {
     "opencode": {
       "command": "npx",
-      "args": ["-y", "opencode-mcp"],
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"],
       "env": { "OPENCODE_TOOL_PROFILE": "essential" }
     }
   }
@@ -81,7 +81,7 @@ Use `.vscode/mcp.json` in the workspace, or run **MCP: Open User Configuration**
     "opencode": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "opencode-mcp"]
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"]
     }
   }
 }
@@ -100,7 +100,7 @@ schema: v1
 mcpServers:
   - name: opencode
     command: npx
-    args: ["-y", "opencode-mcp"]
+    args: ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"]
 ```
 
 Use Agent mode. See [Continue MCP configuration](https://docs.continue.dev/reference) and [workspace configuration](https://docs.continue.dev/guides/configuring-models-rules-tools).
@@ -114,7 +114,7 @@ Use **Settings → AI → MCP Servers → Add Local Server**, or edit the settin
   "context_servers": {
     "opencode": {
       "command": "npx",
-      "args": ["-y", "opencode-mcp"],
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"],
       "env": {}
     }
   }
@@ -125,11 +125,11 @@ See [Zed MCP configuration](https://zed.dev/docs/ai/mcp). The command is a strin
 
 ### Amazon Q Developer
 
-Open the tools/MCP panel, add a **STDIO** server named `opencode`, set command `npx`, and arguments `-y opencode-mcp`. Choose local or global scope. The current IDE UI stores these settings in `.amazonq/default.json` or `~/.aws/amazonq/default.json`; see [Amazon Q configuration](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/mcp-ide.html).
+Open the tools/MCP panel, add a **STDIO** server named `opencode`, set command `npx`, and arguments `-y @mageyuki/opencode-mcp@3.1.0-rc.1`. Choose local or global scope. The current IDE UI stores these settings in `.amazonq/default.json` or `~/.aws/amazonq/default.json`; see [Amazon Q configuration](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/mcp-ide.html).
 
 ### Cline
 
-Use Cline's MCP server settings to add a stdio server with command `npx` and arguments `-y opencode-mcp`.
+Use Cline's MCP server settings to add a stdio server with command `npx` and arguments `-y @mageyuki/opencode-mcp@3.1.0-rc.1`.
 
 ## Required Input and Permissions
 

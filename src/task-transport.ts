@@ -5,8 +5,8 @@ import { BackendCapabilityError } from "./backends/contracts.js";
 import type { Transport, JSONRPCMessage } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { JobService, type JobSnapshot } from "./jobs.js";
-import { runInputSchema } from "./job-contract.js";
-import { applyModelDefaults, toolResult, toolError } from "./helpers.js";
+import { runInputSchema, jobObservationMessage } from "./job-contract.js";
+import { applyModelDefaults, toolResult, toolError, startupFailureText } from "./helpers.js";
 import { withStructuredText } from "./mcp-server.js";
 import { decodeInputResponses, inputRequests, supportsForm, canUseNativeForms } from "./task-input.js";
 
@@ -32,10 +32,10 @@ export function taskFromJob(job: JobSnapshot, detailed = false): Record<string, 
   const task: Record<string, unknown> = {
     taskId: job.jobId, status, createdAt: new Date(job.createdAt!).toISOString(),
     lastUpdatedAt: new Date(job.updatedAt!).toISOString(), ttlMs: job.expiresAt! - job.createdAt!, pollIntervalMs: 2000,
-    statusMessage: job.status === "unknown" ? "Submission outcome unknown; observation will not resend it." : job.status,
+    statusMessage: startupFailureText(job.error) ?? jobObservationMessage(job) ?? job.status,
   };
   if (detailed && status === "completed") task.result = { resultType: "complete", ...withStructuredText(
-    toolResult(job.text ?? (job.status === "failed" ? "OpenCode task failed" : "Completed"), job.status === "failed", { ...job })) };
+    toolResult(startupFailureText(job.error) ?? job.text ?? (job.status === "failed" ? "OpenCode task failed" : "Completed"), job.status === "failed", { ...job })) };
   if (detailed && status === "input_required") {
     if (canUseNativeForms(job.inputs ?? [])) task.inputRequests = inputRequests(job.inputs ?? []);
     else { task.status = "working"; task.statusMessage = "Manual input required: use opencode_job_input with typed values matching the returned fields."; task.pendingInputs = job.inputs; }

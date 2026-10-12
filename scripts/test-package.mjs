@@ -194,6 +194,9 @@ export function packageOptions(argv) {
   return { archive: argv[1] };
 }
 
+// npm <=11 prints `npm pack --json` as an array; npm 12 prints an object keyed by package name.
+export const packEntries = (output) => { const parsed = JSON.parse(output); return Array.isArray(parsed) ? parsed : Object.values(parsed); };
+
 export async function packedInstall(root, env, suppliedArchive) {
   const [npm, ...prefix] = await npmCommand();
   const archiveDir = join(root, "archive"), consumer = join(root, "consumer");
@@ -208,15 +211,28 @@ export async function packedInstall(root, env, suppliedArchive) {
     archive = join(archiveDir, "candidate.tgz");
     await writeFile(archive, await readFile(sourceArchive), { flag: "wx", mode: 0o600 });
   } else {
-    const packed = JSON.parse(await run(npm, [...prefix, "pack", "--ignore-scripts", "--json", "--pack-destination", archiveDir], { cwd: repository, env }));
+    const packed = packEntries(await run(npm, [...prefix, "pack", "--ignore-scripts", "--json", "--pack-destination", archiveDir], { cwd: repository, env }));
     assert.equal(packed.length, 1);
     archive = join(archiveDir, packed[0].filename);
   }
   const integrity = "sha512-" + createHash("sha512").update(await readFile(archive)).digest("base64");
   await run(npm, [...prefix, "install", "--omit=dev", "--no-audit", "--no-fund", archive], { cwd: consumer, env }, 180_000);
-  const manifest = JSON.parse(await readFile(join(consumer, "node_modules/opencode-mcp/package.json"), "utf8"));
-  assert.equal(manifest.name, "opencode-mcp", "Archive must contain the opencode-mcp package");
-  const executable = join(consumer, "node_modules/opencode-mcp", manifest.bin["opencode-mcp"]);
+  // The archive may carry the upstream name or the scoped fork name; the installed dependency key is its identity.
+  const [packageName, ...extra] = Object.keys(JSON.parse(await readFile(join(consumer, "package.json"), "utf8")).dependencies ?? {});
+  assert.equal(extra.length, 0, "Archive install must add exactly one dependency");
+  assert.ok(["opencode-mcp", "@mageyuki/opencode-mcp"].includes(packageName), "Archive must contain the opencode-mcp package");
+  const manifest = JSON.parse(await readFile(join(consumer, "node_modules", packageName, "package.json"), "utf8"));
+  assert.equal(manifest.name, packageName, "Installed manifest name must match the installed dependency");
+  if (packageName === "@mageyuki/opencode-mcp") {
+    // The fork ships its lock under a non-reserved name because npm 12 neither packs nor honors npm-shrinkwrap.json.
+    const shipped = await readFile(join(consumer, "node_modules", packageName, "dependency-lock.json"));
+    const lock = JSON.parse(shipped.toString("utf8"));
+    assert.deepEqual([lock.name, lock.version, lock.packages[""].name, lock.packages[""].version],
+      [manifest.name, manifest.version, manifest.name, manifest.version], "dependency-lock.json root must match the package");
+    // Only a working-tree pack can be compared with the repository lock; a supplied archive is checked for self-consistency.
+    if (suppliedArchive === undefined) assert.ok(shipped.equals(await readFile(join(repository, "package-lock.json"))), "dependency-lock.json must equal package-lock.json");
+  }
+  const executable = join(consumer, "node_modules", packageName, manifest.bin["opencode-mcp"]);
   await access(executable);
   await access(join(consumer, "node_modules/.bin", process.platform === "win32" ? "opencode-mcp.cmd" : "opencode-mcp"));
   // Assert dev-only packages are not installed at the consumer root.

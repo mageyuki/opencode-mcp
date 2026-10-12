@@ -11,9 +11,10 @@ import { McpServer, type ToolContext } from "../mcp-server.js";
 import { OpenCodeClient } from "../client.js";
 import { JobService, observeSession, type JobSnapshot } from "../jobs.js";
 import { createRequestContext, abortableSleep, withAbort } from "../async.js";
-import { dispatchShape, runShape } from "../job-contract.js";
+import { dispatchShape, runShape, jobObservationMessage } from "../job-contract.js";
 import {
   formatMessageResponse,
+  formatAgentInfo,
   formatMessageList,
   formatSessionList,
   analyzeMessageResponse,
@@ -40,6 +41,8 @@ function jobResult(snapshot: JobSnapshot, note = "", extra: Record<string, unkno
   if (snapshot.status === "completed") lines.push("Session completed.");
   if (snapshot.status === "input_required") lines.push("Input required. Inspect pending permissions and questions before continuing.");
   if (snapshot.error) lines.push(`Error: ${typeof snapshot.error === "string" ? snapshot.error : JSON.stringify(snapshot.error)}`);
+  const observationMessage = jobObservationMessage(snapshot);
+  if (observationMessage) lines.push(observationMessage);
   if (note) lines.push(note);
   if (snapshot.text) lines.push(snapshot.text);
   return toolResult(lines.join("\n\n"), snapshot.status === "failed", { ...snapshot, ...extra });
@@ -297,7 +300,7 @@ export function registerWorkflowTools(
       agent: z
         .string()
         .optional()
-        .describe("Agent to use (e.g. 'build', 'plan')"),
+        .describe("Agent ID (V2: 'plan', not display name 'Plan'; V1: agent name)"),
       system: z
         .string()
         .optional()
@@ -316,6 +319,13 @@ export function registerWorkflowTools(
         }, ...({ directory, ...(extra?.signal ? { signal: extra.signal } : {}) }) })) as Record<string, unknown>;
         sessionId = session.id as string;
         if (!sessionId) throw new Error("OpenCode returned a session without an ID");
+
+        if (client.getBackendIdentity?.().kind === "v2") {
+          const started = await service.start({ prompt, sessionId, directory,
+            model: selectModel(client, providerID, modelID), variant, agent, format }, { signal: extra?.signal });
+          if (started.status !== "accepted") return jobResult(started);
+          return waitForSnapshot(options => service.get(started.jobId!, options), started, 120, 200, extra);
+        }
 
         // 2. Send prompt
         const body: Record<string, unknown> = {
@@ -359,12 +369,18 @@ export function registerWorkflowTools(
       providerID: z.string().optional().describe("Provider ID"),
       modelID: z.string().optional().describe("Model ID"),
       variant: z.string().optional().describe("Model variant"),
-      agent: z.string().optional().describe("Agent to use"),
+      agent: z.string().optional().describe("Agent ID (V2 exact ID; V1 agent name)"),
       format: outputFormatParam,
       directory: directoryParam,
     },
     async ({ sessionId, prompt, providerID, modelID, variant, agent, format, directory }, extra) => {
       try {
+        if (client.getBackendIdentity?.().kind === "v2") {
+          const started = await service.start({ prompt, sessionId, directory,
+            model: selectModel(client, providerID, modelID), variant, agent, format }, { signal: extra?.signal });
+          if (started.status !== "accepted") return jobResult(started);
+          return waitForSnapshot(options => service.get(started.jobId!, options), started, 120, 200, extra);
+        }
         const body: Record<string, unknown> = {
           parts: [{ type: "text", text: prompt }],
         };
@@ -540,7 +556,7 @@ export function registerWorkflowTools(
         if (agents) {
           const agentList = agents as Array<Record<string, unknown>>;
           sections.push(
-            `## Agents (${agentList.length})\n${agentList.map((a) => `- ${a.name ?? a.id}: ${a.description ?? "(no description)"} [${a.mode ?? "?"}]`).join("\n")}`,
+            `## Agents (${agentList.length})\n${agentList.map((a) => `- ${formatAgentInfo(a)}`).join("\n")}`,
           );
         }
 
@@ -746,7 +762,8 @@ export function registerWorkflowTools(
         directory = normalizeDirectory(directory);
         if (!sessionId && !jobId) throw new Error("Provide sessionId or jobId to check a task.");
         const options = { signal: extra?.signal };
-        const snapshot = jobId ? await service.get(jobId, options) : await observeSession(client, sessionId!, directory, messageId, options);
+        const readOptions = { ...options, includeExecutionEvidence: true };
+        const snapshot = jobId ? await service.get(jobId, readOptions) : await observeSession(client, sessionId!, directory, messageId, readOptions);
         const sid = snapshot.sessionId;
         if (!sid) return jobResult(snapshot, "Session creation could not be confirmed. Inspect this job before retrying.");
         const project = snapshot.directory ?? directory;

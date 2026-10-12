@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fork packaging (`@mageyuki/opencode-mcp`)
+
+- Unofficial fork of `AlaeddineMessadi/opencode-mcp` at `1b9552bebaf648e7dd989f3d48515d3c116c154e` (`3.1.0-rc.1`). The package is renamed to `@mageyuki/opencode-mcp`, keeps the version number `3.1.0-rc.1` of its upstream base, and keeps the `opencode-mcp` executable and MCP server name. Nothing is published yet; see [FORK.md](FORK.md).
+- Includes the divergence patch `pr29-live-observation.patch` (SHA-256 `3368e44bbef0f3e00d156ef878e19b5055624689952dac5d86cca7955583b1a0`): V2 live observation and execution evidence, guarded project read tools (essential profile 25 → 28 tools), and a Herdr origin marker.
+- Ships `dependency-lock.json`, an unchanged copy of `package-lock.json`, for manual dependency restore in an extracted package root (npm 12 does not honor `npm-shrinkwrap.json`; the file is not used automatically). See [FORK.md](FORK.md).
+- Regenerated `docs/tools.md` for those source changes; install commands and registry metadata use the scoped name. Package verification scripts accept the scoped name and npm 12's object-form `npm pack --json` output, and check the shipped lock.
+
 ## [3.1.0-rc.1] - 2026-09-17
 
 Evaluation candidate for the V1/V2 compatibility foundation. The original 65-operation V2 completion gate remains blocked by upstream command correlation; this is not a completed milestone declaration.

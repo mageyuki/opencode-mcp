@@ -79,7 +79,7 @@ describe("preserved archive selection", () => {
 import { compatibilityOptions, assertDoctorResult, configuredProviderEvidence } from "../scripts/test-compat.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
-import { isolatedEnvironment, npmCommand, packedInstall } from "../scripts/test-package.mjs";
+import { isolatedEnvironment, npmCommand, packedInstall, packEntries } from "../scripts/test-package.mjs";
 
 describe("retained compatibility archives", () => {
   it("accepts archive selection without enabling inference", () => {
@@ -97,7 +97,7 @@ describe("retained compatibility archives", () => {
       await writeFile(join(producer, "package.json"), JSON.stringify({ name: "opencode-mcp", version: "99.0.0-fixture", bin: { "opencode-mcp": "index.js" } }));
       await writeFile(join(producer, "index.js"), '#!/usr/bin/env node\nconsole.log("retained-fixture")\n');
       const [npm, ...prefix] = await npmCommand();
-      const [packed] = JSON.parse(await run(npm, [...prefix, "pack", "--ignore-scripts", "--json"], { env, cwd: producer }));
+      const [packed] = packEntries(await run(npm, [...prefix, "pack", "--ignore-scripts", "--json"], { env, cwd: producer }));
       const archive = join(producer, packed.filename), bytes = await readFile(archive);
       const installed = await packedInstall(consumer, env, archive);
       expect(installed.manifest.version).toBe("99.0.0-fixture");

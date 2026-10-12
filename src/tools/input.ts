@@ -4,7 +4,8 @@ import { z } from "zod";
 import { McpServer } from "../mcp-server.js";
 import { OpenCodeClient } from "../client.js";
 import { JobService } from "../jobs.js";
-import { directoryParam, normalizeDirectory, toolJson, toolResult, toolError } from "../helpers.js";
+import { jobObservationMessage } from "../job-contract.js";
+import { directoryParam, normalizeDirectory, toolJson, toolResult, toolError, startupFailureText } from "../helpers.js";
 import { decodeInputResponses, inputAnswerSchema, inputRequests, supportsForm, canUseNativeForms } from "../task-input.js";
 
 const errorResult = toolError;
@@ -36,8 +37,12 @@ export function registerInputTools(server: McpServer, client: OpenCodeClient, jo
       jobId: z.string().min(1),
     }, async ({ jobId }, extra) => {
       try {
-        const job = await jobs[action](jobId, { signal: extra?.signal });
-        return toolResult(job.text ?? `Job ${jobId}: ${job.status}`, job.status === "failed", { ...job });
+        const job = action === "get"
+          ? await jobs.get(jobId, { signal: extra?.signal, includeExecutionEvidence: true })
+          : await jobs.cancel(jobId, { signal: extra?.signal });
+        const text = startupFailureText(job.error) ?? job.text ?? `Job ${jobId}: ${job.status}`;
+        const note = action === "get" ? jobObservationMessage(job) : undefined;
+        return toolResult(note ? `${text}\n\n${note}` : text, job.status === "failed", { ...job });
       } catch (error) { return toolResult(error instanceof Error ? error.message : String(error), true, { jobId, status: "unknown" }); }
     });
   }
@@ -59,7 +64,7 @@ export function registerInputTools(server: McpServer, client: OpenCodeClient, jo
         if (supportsForm(envelope?.["io.modelcontextprotocol/clientCapabilities"]) && canUseNativeForms(job.inputs)) return inputRequired({ inputRequests: inputRequests(job.inputs) });
         return toolResult("OpenCode needs input. Call opencode_job_input with explicit responses for the pending IDs. V2 forms require field-keyed typed values matching the returned fields; always approval requires scope=project, rejection requires scope=session.", false, { ...job });
       }
-      return toolResult(job.text ?? `Job ${jobId}: ${job.status}`, job.status === "failed", { ...job });
+      return toolResult(startupFailureText(job.error) ?? job.text ?? `Job ${jobId}: ${job.status}`, job.status === "failed", { ...job });
     } catch (error) { return errorResult(error); }
   });
 }

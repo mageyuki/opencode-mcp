@@ -67,7 +67,7 @@ The runner sends a text-only request through `opencode_fire`, checks progress, w
 
 1. **Choose a version that has never been published.** Check npm's version list, repository tags, GitHub releases, and prior release notes:
    ```bash
-   npm view opencode-mcp versions --json
+   npm view @mageyuki/opencode-mcp versions --json
    git tag --list 'v*'
    ```
    Absence from the current npm version list is not proof a version is reusable: npm can permanently reserve previously published versions even after removal. For this package, **2.0.0 is reserved**; 2.0.1 was the compatibility release. Never retry publication under a known reserved version.
@@ -94,10 +94,10 @@ The runner sends a text-only request through `opencode_fire`, checks progress, w
    ```
    Inspect the file list and package metadata. Install the produced archive in a fresh temporary directory, using production dependencies only, then exercise its executable through an MCP client: initialization, tool discovery, a fixture-backed health call, and clean stdio shutdown. Repeat on the supported OS/runtime matrix where practical. This catches missing runtime dependencies or generated files that source-tree tests cannot detect. Record the archive's `integrity` value from the pack result.
 
-5. **Publish the tested archive after release authorization.** Verify the registry account with `npm whoami`, publish that exact `.tgz`, and complete any registry-required authentication. Avoid rebuilding between archive verification and publication. If npm rejects a reserved version, select a new version and repeat metadata, checks, packing, and archive validation before retrying.
+5. **Publish the tested archive after release authorization.** Verify the registry account with `npm whoami`, publish that exact `.tgz`, and complete any registry-required authentication. The accepted dist-tag for the `3.1.0-rc.1` candidate is `rc` (`publishConfig.tag`), not `latest`; publish with that tag. Any later release, or any move of a tag including to `latest`, needs its own explicit tag decision. Avoid rebuilding between archive verification and publication. If npm rejects a reserved version, select a new version and repeat metadata, checks, packing, and archive validation before retrying.
 
 6. **Verify the registry artifact.**
    ```bash
-   npm view opencode-mcp@VERSION version dist.integrity dist-tags --json
+   npm view @mageyuki/opencode-mcp@VERSION version dist.integrity dist-tags --json
    ```
-   Compare `dist.integrity` with the tested archive's integrity and confirm `latest` points to the intended version. Install the exact published version in another clean directory and rerun the package smoke checks. Create the matching Git tag and GitHub release with migration notes and validation evidence. Do not describe a release as published until npm confirms it and these post-publication checks pass.
+   Compare `dist.integrity` with the tested archive's integrity and confirm `dist-tags.rc` points to the intended version. Do not expect `latest` to point at a release candidate; `latest` changes only under a separate, explicit tag decision. Install the exact published version in another clean directory and rerun the package smoke checks. Create the matching Git tag and GitHub release with migration notes and validation evidence. Do not describe a release as published until npm confirms it and these post-publication checks pass.

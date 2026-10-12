@@ -20,6 +20,7 @@ function fixture() {
   let kind = "v2";
   const client = { getBaseUrl: () => "http://fixture:4096", getBackendIdentity: () => ({ ...identity, kind }), connectionHeaders: {} } as unknown as OpenCodeClient;
   const api: any = {
+    event: { subscribe: vi.fn(() => (async function* () { yield { type: "server.connected", data: {} }; await new Promise(() => {}); })()) },
     session: {
       get: vi.fn(async () => ({ id: "session", title: "Fixture", location: { directory: "/remote/project" }, time: { created: 1, updated: 1 }, projectID: "project" })),
       log: vi.fn(({ after }: any) => (async function* () { for (const event of events) if (event.durable.seq > after) yield event; yield { type: "log.synced", aggregateID: "session", seq: events.at(-1)?.durable.seq ?? 0 }; })()),

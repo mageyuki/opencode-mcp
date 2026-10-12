@@ -33,6 +33,32 @@ async function setup() {
 }
 
 describe("modern Tasks wire results", () => {
+  it.each([
+    ["LiveObservationLost", "Job observation lost; original turn outcome is unknown. Session execution may continue. Do not resend automatically."],
+    ["OpenCodeSubmissionError", "Submission outcome unknown; observation will not resend it."],
+    ["TurnOwnershipLost", "Job outcome unknown; observation will not resend it."],
+    ["ExecutionInterrupted", "Job outcome unknown; observation will not resend it."],
+    ["OtherNamedError", "Job outcome unknown; observation will not resend it."],
+    ["", "Job observation lost; original turn outcome is unknown. Session execution may continue. Do not resend automatically."],
+  ])("keeps unknown Tasks working and preserves named %s diagnostic precedence over lost coverage", (name, message) => {
+    const job = { ...snapshot("unknown"), liveCoverage: "lost" as const, error: { name, message: "original diagnostic" } };
+    const before = structuredClone(job);
+    expect(taskFromJob(job, true)).toMatchObject({ status: "working", statusMessage: message });
+    expect(job).toEqual(before); expect(taskFromJob(job, true)).not.toHaveProperty("result");
+  });
+  it("maps unnamed unknown without lost coverage generically and leaves non-unknown statuses alone", () => {
+    expect(taskFromJob({ ...snapshot("unknown"), error: "untyped" }).statusMessage).toBe("Job outcome unknown; observation will not resend it.");
+    expect(taskFromJob({ ...snapshot("running"), liveCoverage: "lost", error: { name: "LiveObservationLost" } }).statusMessage).toBe("running");
+  });
+  it("does not opt repeated unknown Tasks polling into execution evidence", async () => {
+    const { request, jobs } = await setup(); jobs.get.mockResolvedValue({ ...snapshot("unknown"), liveCoverage: "lost", error: { name: "LiveObservationLost" } });
+    for (const id of [1, 2, 3]) {
+      const output = await request(id, "tasks/get", { taskId: "job_test", _meta: meta() });
+      expect(output.result.status).toBe("working"); expect(output.result).not.toHaveProperty("executionEvidence");
+    }
+    expect(jobs.get).toHaveBeenCalledTimes(3);
+    for (const [, options] of jobs.get.mock.calls as any) expect(options).not.toHaveProperty("includeExecutionEvidence");
+  });
   it("returns a flat task handle for capable run calls and routes no core traffic", async () => {
     const { request, jobs, forwarded } = await setup();
     const result = await request(1, "tools/call", { name: "opencode_run", arguments: { prompt: "Task", providerID: "test", modelID: "model" }, _meta: meta() });

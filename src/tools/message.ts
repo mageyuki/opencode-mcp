@@ -76,7 +76,7 @@ export function registerMessageTools(
         .optional()
         .describe("Model ID (e.g. 'claude-3-5-sonnet-20241022')"),
       variant: z.string().optional().describe("Model variant (e.g. 'fast', 'smart')"),
-      agent: z.string().optional().describe("Agent to use"),
+      agent: z.string().optional().describe("Agent ID (V2 exact ID; V1 agent name)"),
       noReply: z
         .boolean()
         .optional()
@@ -145,7 +145,7 @@ export function registerMessageTools(
         .optional()
         .describe("Model ID (e.g. 'claude-3-5-sonnet-20241022')"),
       variant: z.string().optional().describe("Model variant (e.g. 'fast', 'smart')"),
-      agent: z.string().optional().describe("Agent to use"),
+      agent: z.string().optional().describe("Agent ID (V2 exact ID; V1 agent name)"),
       format: outputFormatParam,
       directory: directoryParam,
     },
@@ -185,7 +185,7 @@ export function registerMessageTools(
         .string()
         .optional()
         .describe("Arguments for the command"),
-      agent: z.string().optional().describe("Agent to use"),
+      agent: z.string().optional().describe("Agent ID (V2 exact ID; V1 agent name)"),
       providerID: z.string().optional().describe("Provider ID"),
       modelID: z.string().optional().describe("Model ID"),
       variant: z.string().optional().describe("Model variant"),
@@ -224,7 +224,7 @@ export function registerMessageTools(
     {
       sessionId: z.string().describe("Session ID"),
       command: z.string().describe("Shell command to execute"),
-      agent: z.string().describe("Agent to use for the shell command"),
+      agent: z.string().describe("Agent ID for the shell command (V2 exact ID; V1 agent name)"),
       providerID: z.string().optional().describe("Provider ID"),
       modelID: z.string().optional().describe("Model ID"),
       directory: directoryParam,

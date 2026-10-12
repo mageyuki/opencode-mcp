@@ -30,7 +30,13 @@ describe("public backend capability inventory", () => {
     const legacy = createServer(client("v1"), jobs, profile).catalog;
     const modern = createServer(client("v2"), jobs, profile).catalog;
     expect(modern).toEqual(legacy);
-    if (profile === "essential") expect(legacy).toHaveLength(25);
+    if (profile === "essential") {
+      expect(legacy).toHaveLength(28);
+      const prior = `setup provider_list provider_models ask reply run fire check wait conversation review_changes context status
+        session_abort session_create session_list permission_list session_permission question_list question_reply question_reject
+        job_get job_list job_cancel job_input`.split(/\s+/).map(name => `opencode_${name}`);
+      expect(legacy.map(tool => tool.name).sort()).toEqual([...prior, "opencode_file_read", "opencode_file_list", "opencode_find_file"].sort());
+    }
   });
   it("distinguishes the upstream command blocker from the planned V1-only exceptions", () => {
     const tools = capabilities.filter(item => item.kind === "tool");

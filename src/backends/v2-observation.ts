@@ -1,7 +1,7 @@
 import type { OpenCode, SessionLogOutput, SessionMessageAssistant } from "@opencode/client";
 import type { JobSnapshot, JobStatus } from "../jobs.js";
 import { createRequestContext, withAbort, type RequestOptions } from "../async.js";
-import { formatMessageResponse } from "../helpers.js";
+import { formatMessageResponse, redactSecrets } from "../helpers.js";
 import { normalizeMessage, normalizeSession } from "./normalization.js";
 
 export type V2Api = ReturnType<typeof OpenCode.make>;
@@ -9,6 +9,14 @@ export type V2Api = ReturnType<typeof OpenCode.make>;
 export interface V2ObservationState {
   version: 1;
   cursor: number;
+  /** Number of actual durable log rows applied; log.synced is not evidence. */
+  logEvents?: number;
+  /** Separate live ordering: an empty log sync cannot consume future live rows. */
+  liveCursor?: number;
+  liveSeen?: number[];
+  logSeen?: number[];
+  /** Only a verified receipt for a fresh session created by this JobService.start. */
+  startupFailureEligible?: true;
   messageId: string;
   admitted?: boolean;
   delivered?: boolean;
@@ -21,7 +29,7 @@ export interface V2ObservationState {
   ownershipLost?: boolean;
   assistantIds: string[];
   completedAssistantIds: string[];
-  interruption?: "user" | "shutdown" | "superseded" | "inactivity";
+  interruption?: "user" | "shutdown" | "superseded" | "inactivity" | "unspecified";
   outcome?: "completed" | "failed" | "cancelled";
   error?: unknown;
   synced?: boolean;
@@ -34,7 +42,32 @@ export const initialV2Observation = (messageId: string): V2ObservationState => (
   version: 1, cursor: 0, messageId, assistantIds: [], completedAssistantIds: [],
 });
 
-function observeEvent(state: V2ObservationState, event: Exclude<SessionLogOutput, { type: "log.synced" }>): void {
+export function applyObservedEvent(state: V2ObservationState, event: Exclude<SessionLogOutput, { type: "log.synced" }>, fromLive = false): void {
+  observeEvent(state, event, fromLive);
+}
+
+/** Protocol allowlist before persistence; existing redaction is not embedded-secret detection. */
+export function startupFailureCause(value: unknown): { type: string; message: string; status?: number } | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  const cause = value as Record<string, unknown>;
+  if (typeof cause.type !== "string" || typeof cause.message !== "string" ||
+      cause.status !== undefined && (typeof cause.status !== "number" || !Number.isFinite(cause.status))) return;
+  return redactSecrets({ type: cause.type, message: cause.message, ...(cause.status === undefined ? {} : { status: cause.status }) }) as { type: string; message: string; status?: number };
+}
+
+function startupFailure(state: V2ObservationState, seq: number, fromLive: boolean): boolean {
+  const onlyOwn = (values: Record<string, string> | undefined, expected: string) =>
+    !!values && Object.keys(values).length === 1 && values[state.messageId] === expected;
+  return fromLive && seq === 3 && state.startupFailureEligible === true && state.cursor === 0 &&
+    !state.logEvents && !state.logSeen?.length && state.liveCursor === 3 &&
+    state.liveSeen?.length === 3 && state.liveSeen.every((value, index) => value === index + 1) && state.executionStart === 2 &&
+    state.admitted === true && state.queued === true && !state.delivered && !state.latestDeliveredId && state.ownsExecution === false &&
+    state.targetExecution === undefined && !state.outcome && !state.finalAssistantId && !state.interruption && !state.ownershipLost &&
+    state.assistantIds.length === 0 && state.completedAssistantIds.length === 0 &&
+    onlyOwn(state.pendingKinds, "user") && onlyOwn(state.pendingDeliveries, "queue");
+}
+
+function observeEvent(state: V2ObservationState, event: Exclude<SessionLogOutput, { type: "log.synced" }>, fromLive = false): void {
   const data = event.data as Record<string, any>;
   // An established terminal receipt remains valid when later work is submitted.
   if (state.outcome) return;
@@ -100,11 +133,17 @@ function observeEvent(state: V2ObservationState, event: Exclude<SessionLogOutput
     case "session.execution.failed":
       if (state.ownsExecution && !state.ownershipLost && state.targetExecution === state.executionStart) {
         state.outcome = "failed"; state.error = data.error; state.ownsExecution = false;
+      } else if (startupFailure(state, event.durable.seq, fromLive)) {
+        const cause = startupFailureCause(data.error);
+        if (cause) {
+          state.outcome = "failed";
+          state.error = { name: "ExecutionStartFailed", message: "Execution failed before prompt delivery. The admitted input may still be queued and may execute later. Inspect this job/session before taking further action; do not resend automatically.", cause };
+        }
       }
       break;
     case "session.execution.interrupted":
       if (state.ownsExecution && !state.ownershipLost && state.targetExecution === state.executionStart) {
-        state.interruption = data.reason; state.ownsExecution = false;
+        state.interruption = data.reason || "unspecified"; state.ownsExecution = false;
         if (data.reason === "user") state.outcome = "cancelled";
         if (data.reason === "superseded") state.ownershipLost = true;
       }
@@ -145,7 +184,11 @@ export async function observeV2Session(
         }
         if (!Number.isSafeInteger(event.durable.seq) || event.durable.seq < 0) throw new Error("V2 log returned an invalid cursor");
         if (event.durable.seq <= state.cursor) continue;
-        observeEvent(state, event);
+        if (!state.liveSeen?.includes(event.durable.seq)) {
+          observeEvent(state, event);
+          state.logEvents = (state.logEvents ?? 0) + 1;
+          (state.logSeen ??= []).push(event.durable.seq);
+        }
         state.cursor = event.durable.seq;
       }
     } finally {
@@ -179,7 +222,9 @@ export async function observeV2Session(
       const message = await read(api.session.message.get({ sessionID: sessionId, messageID: lastAssistant }, request));
       if (message.id !== lastAssistant || message.type !== "assistant") throw new Error("V2 returned a mismatched assistant message");
       assistant = message;
-      const normalized = normalizeMessage(message, sessionId, messageId);
+      // A persisted job can retain this result. Keep the answer body, not
+      // reasoning or tool payloads embedded in the SDK's raw projection.
+      const normalized = normalizeMessage({ ...message, content: message.content.filter(part => part.type === "text") }, sessionId, messageId);
       snapshot.result = normalized; snapshot.text = formatMessageResponse(normalized);
     }
     let status: JobStatus = "unknown";

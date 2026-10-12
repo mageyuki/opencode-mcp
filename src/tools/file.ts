@@ -3,8 +3,10 @@ import { z } from "zod";
 import { McpServer } from "../mcp-server.js";
 import { OpenCodeClient } from "../client.js";
 import { toolJson, toolError, toolResult, directoryParam, readOnly } from "../helpers.js";
+import { registerProjectReadTools } from "./project-read.js";
 
 export function registerFileTools(server: McpServer, client: OpenCodeClient) {
+  if (server.profile === "essential") { registerProjectReadTools(server, client); return; }
   server.tool(
     "opencode_find_text",
     "Search for text patterns in project files (regex supported). Returns file paths, line numbers, and matching lines.",

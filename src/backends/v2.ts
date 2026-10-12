@@ -12,11 +12,28 @@ import { BackendCapabilityError } from "./contracts.js";
 import { normalizeSession, normalizeMessage, normalizeMessages, normalizeProviders, pageArray } from "./normalization.js";
 import { createRequestContext, withAbort, abortableSleep, throwIfAborted } from "../async.js";
 import { normalizeDirectory, applyModelDefaults } from "../helpers.js";
+import { markHerdrOrigin } from "../herdr-origin.js";
 
 const object = (value: unknown): Record<string, any> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
 const required = (value: string | undefined, name: string): string => { if (!value) throw new Error(`${name} is required`); return value; };
+export class AgentIdNotFound extends OpenCodeError {
+  constructor() {
+    super("Unknown V2 agent ID. Use the exact, case-sensitive ID from opencode_agent_list or opencode_context, not its display name.", 404, "GET", "agent.get", "");
+    this.name = "AgentIdNotFound";
+  }
+}
 export class V2Adapter implements BackendAdapter {
   readonly api: ReturnType<typeof OpenCode.make>;
+  private eventConnectionReady = false;
+  private readonly eventReadyWaiters = new Set<() => void>();
+  /** Resolves when HTTP 200 SSE has an actual reader, not when subscribe() starts. */
+  eventStreamReady(): { ready: Promise<void>; dispose: () => void } {
+    if (this.eventConnectionReady) return { ready: Promise.resolve(), dispose: () => {} };
+    let resolve!: () => void;
+    const ready = new Promise<void>(done => { resolve = done; });
+    this.eventReadyWaiters.add(resolve);
+    return { ready, dispose: () => this.eventReadyWaiters.delete(resolve) };
+  }
   private readonly mutation = new AsyncLocalStorage<{ submitted: boolean; method?: string; path?: string; recovery?: {sessionId:string;messageId?:string} }>();
   constructor(client: OpenCodeClient) {
     const base = new URL(client.getBaseUrl());
@@ -32,6 +49,37 @@ export class V2Adapter implements BackendAdapter {
       try {
         const response = await fetch(input instanceof Request ? new Request(url, input) : url, init);
         if (!response.ok) throw new OpenCodeError(`V2 ${method} request rejected (${response.status})`, response.status, method, url.pathname, await response.text());
+        if (method === "GET" && url.pathname.endsWith("/api/event") &&
+            response.headers.get("content-type")?.split(";")[0]?.trim() === "text/event-stream" && response.body) {
+          // Hold the network reader before notifying dispatch. The wrapper
+          // feeds the SDK's normal SSE decoder; frames arriving before it
+          // resumes are buffered by the stream, not lost to a prompt race.
+          const reader = response.body.getReader();
+          const adapter = this;
+          const signal = init?.signal !== undefined ? init.signal : input instanceof Request ? input.signal : undefined;
+          const retire = () => {
+            adapter.eventConnectionReady = false;
+            signal?.removeEventListener("abort", retire);
+          };
+          const body = new ReadableStream<Uint8Array>({
+            async pull(controller) {
+              try {
+                const next = await reader.read();
+                if (next.done) { retire(); controller.close(); return; }
+                controller.enqueue(next.value);
+              } catch (error) { retire(); controller.error(error); }
+            },
+            cancel(reason) { retire(); return reader.cancel(reason); },
+          }, { highWaterMark: 0 });
+          const wrapped = new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+          if (!signal?.aborted) {
+            signal?.addEventListener("abort", retire, { once: true });
+            this.eventConnectionReady = true;
+            for (const resolve of this.eventReadyWaiters) resolve();
+            this.eventReadyWaiters.clear();
+          }
+          return wrapped;
+        }
         return response;
       } catch (error) {
         if (write && !(error instanceof OpenCodeError)) throw new OpenCodeSubmissionError(method, url.pathname, error);
@@ -39,8 +87,14 @@ export class V2Adapter implements BackendAdapter {
       }
     } });
   }
-  execute<K extends Operation>(operation: K, args: OperationInputs[K]): Promise<OperationResults[K]> {
-    return this.request(operation, args) as Promise<OperationResults[K]>;
+  async execute<K extends Operation>(operation: K, args: OperationInputs[K]): Promise<OperationResults[K]> {
+    const result = await this.request(operation, args) as OperationResults[K];
+    // request() has disposed its timer/listener and submission-error boundary.
+    // Marker latency or failure must not reclassify or replay confirmed creation.
+    if (operation === "sessions.create" || operation === "sessions.fork") {
+      await markHerdrOrigin((result as OperationResults["sessions.create"]).id);
+    }
+    return result;
   }
   private async request(operation: Operation, args: OperationArgs): Promise<unknown> {
     const context = createRequestContext(args);
@@ -137,6 +191,7 @@ export class V2Adapter implements BackendAdapter {
         if (body.parentID !== undefined) throw new BackendCapabilityError("session_create.parentID", "V2 session creation has no parentID equivalent; use an explicit fork instead.");
         const model = body.model ?? applyModelDefaults();
         if (body.variant && !model) throw new BackendCapabilityError("session.variant", "Select a provider and model before requesting a V2 model variant.");
+        await this.preflightAgent(body.agent, location, options);
         return normalizeSession(await api.session.create({ title: body.title, agent: body.agent,
           model: model ? { id: model.modelID, providerID: model.providerID, ...(body.variant ? { variant: body.variant } : {}) } : undefined, location }, options));
       }
@@ -175,7 +230,9 @@ export class V2Adapter implements BackendAdapter {
       }
       case "messages.enqueue": case "messages.send": {
         assertPromptOptions(body);
-        const session = await this.scopedSession(args, options); assertSessionSelection(session, body);
+        const session = await this.scopedSession(args, options);
+        await this.preflightAgent(body.agent, session.location, options);
+        assertSessionSelection(session, body);
         assertNoStagedRevert(session);
         const parts = Array.isArray(body.parts) ? body.parts : [];
         if (parts.some(part => part.type !== "text")) throw new BackendCapabilityError("prompt.parts", "This V2 compatibility prompt accepts text parts only.");
@@ -188,7 +245,10 @@ export class V2Adapter implements BackendAdapter {
       }
       case "messages.command": throw new BackendCapabilityError("command_execute", "V2 2.0.6 command submission returns no receipt and accepts no caller identifier. Exact execution completion cannot be correlated safely; no command was submitted.");
       case "messages.shell": {
-        const session = await this.scopedSession(args, options); assertSessionSelection(session, body);
+        assertPromptOptions(body);
+        const session = await this.scopedSession(args, options);
+        await this.preflightAgent(body.agent, session.location, options);
+        assertSessionSelection(session, body);
         const id = createMessageId();
         const dispatchState = this.mutation.getStore(); if (dispatchState) dispatchState.recovery = { sessionId: sessionID(), messageId: id };
         await api.session.shell({ sessionID: sessionID(), id, command: required(body.command, "command") }, options);
@@ -263,6 +323,18 @@ export class V2Adapter implements BackendAdapter {
       if (location.directory !== session.location.directory) throw new Error("Session location does not match the supplied directory");
     }
     return session;
+  }
+  private async preflightAgent(agent: string | undefined, location: { directory: string } | undefined, options: { signal: AbortSignal }): Promise<void> {
+    if (agent === undefined) return;
+    let response;
+    try { response = await this.api.agent.get({ agentID: agent, location: location ? { directory: location.directory } : undefined }, options); }
+    catch (rawError) {
+      const error = unwrapV2Error(rawError);
+      if (error instanceof OpenCodeError && error.status === 404 ||
+          error && typeof error === "object" && "_tag" in error && error._tag === "AgentNotFoundError") throw new AgentIdNotFound();
+      throw error;
+    }
+    if (response?.data?.id !== agent) throw new BackendCapabilityError("agent.validation", "V2 agent lookup returned a malformed or mismatched ID; no write was submitted. Use agent_list to inspect exact agent IDs before retrying.");
   }
   private async resolveIntegration(providerId: string, explicit: string | undefined, options: { signal: AbortSignal }) {
     const providers = await this.api.provider.list(undefined, options);

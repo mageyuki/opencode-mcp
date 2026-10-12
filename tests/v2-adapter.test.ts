@@ -1,6 +1,11 @@
 import { registerSessionTools } from "../src/tools/session.js";
 import type { McpServer } from "../src/mcp-server.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import * as requestContexts from "../src/async.js";
+import * as normalization from "../src/backends/normalization.js";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { OpenCodeClient, OpenCodeError, OpenCodeSubmissionError } from "../src/client.js";
 import { backend, events, operate, selectModel } from "../src/backends/adapter.js";
@@ -37,9 +42,9 @@ describe("V2 actual SDK HTTP contracts",()=>{
     expect(calls[0].url.pathname).toBe(prefix+"/api/info");
   });
   it("preserves remote Windows paths and creates model/agent before prompting",async()=>{
-    const {client,calls}=await fixture(({body})=>({data:session({location:body.location,model:body.model,agent:body.agent})}));
+    const {client,calls}=await fixture(({body,url})=>url.pathname.startsWith("/api/agent/") ? {data:{id:"plan",name:"Plan"}} : {data:session({location:body.location,model:body.model,agent:body.agent})});
     const result=await operate(client,"sessions.create",{directory:"\\\\server\\share\\project",body:{model:{providerID:"p",modelID:"m"},variant:"fast",agent:"plan"}});
-    expect(calls).toHaveLength(1);expect(calls[0].body).toEqual({model:{providerID:"p",id:"m",variant:"fast"},agent:"plan",location:{directory:"\\\\server\\share\\project"}});
+    expect(calls).toHaveLength(2);expect(calls[1].body).toEqual({model:{providerID:"p",id:"m",variant:"fast"},agent:"plan",location:{directory:"\\\\server\\share\\project"}});
     expect(result.directory).toBe("\\\\server\\share\\project");
   });
   it.each([400,401,403])("keeps explicit write rejection HTTP %i definite",async status=>{
@@ -66,9 +71,9 @@ describe("V2 actual SDK HTTP contracts",()=>{
     await expect(operate(client,"sessions.create",{body:{variant:"fast"}})).rejects.toBeInstanceOf(BackendCapabilityError);expect(calls).toHaveLength(0);
   });
   it("preserves existing session selection and queues the exact prompt identity",async()=>{
-    const {client,calls}=await fixture(({method,body})=>method==="GET"?{data:session()}:{data:{id:body.id,sessionID:"ses_a",type:"user",delivery:body.delivery}});
+    const {client,calls}=await fixture(({method,body,url})=>url.pathname.startsWith("/api/agent/")?{data:{id:"build",name:"Build"}}:method==="GET"?{data:session()}:{data:{id:body.id,sessionID:"ses_a",type:"user",delivery:body.delivery}});
     const receipt=await operate(client,"messages.enqueue",{sessionId:"ses_a",body:{messageID:"msg_assigned",parts:[{type:"text",text:"hello"}],model:{providerID:"p",modelID:"m"},variant:"fast",agent:"build"}});
-    expect(receipt?.id).toBe("msg_assigned");expect(calls[1].body).toEqual({id:"msg_assigned",text:"hello",delivery:"queue"});
+    expect(receipt?.id).toBe("msg_assigned");expect(calls[2].body).toEqual({id:"msg_assigned",text:"hello",delivery:"queue"});
     await expect(operate(client,"messages.enqueue",{sessionId:"ses_a",body:{model:{providerID:"other",modelID:"m"}}})).rejects.toBeInstanceOf(BackendCapabilityError);
     expect(calls.filter(call=>call.method!=="GET")).toHaveLength(1);
   });
@@ -175,7 +180,7 @@ describe("V2 normalized reads and scoped mutations over HTTP",()=>{
     const results=await operate(client,"files.find",{query:{query:"o",limit:"2"}});expect(toolResult("files",false,{data:results}).structuredContent).toMatchObject({complete:false,continuationAvailable:false,bounded:true});
   });
   it("reports model and agent conflicts without changing settings",async()=>{
-    const {client,calls}=await fixture(()=>({data:session()}));
+    const {client,calls}=await fixture(({url})=>({data:url.pathname.startsWith("/api/agent/")?{id:"plan",name:"Plan"}:session()}));
     await expect(operate(client,"messages.enqueue",{sessionId:"ses_a",body:{agent:"plan"}})).rejects.toThrow("preserve their agent");
     await expect(operate(client,"messages.enqueue",{sessionId:"ses_a",body:{variant:"slow"}})).rejects.toThrow("preserve their model variant");expect(calls.every(call=>call.method==="GET")).toBe(true);
   });
@@ -214,6 +219,7 @@ describe("V2 normalized reads and scoped mutations over HTTP",()=>{
     let assigned="",reads=0;
     const {client,calls}=await fixture(({url,method,body},res)=>{
       if(method==="POST"){assigned=body.id;res.statusCode=204;return;}
+      if(url.pathname.startsWith("/api/agent/")) return {data:{id:"build",name:"Build"}};
       if(url.pathname.includes("/message/")) { if(reads++===0){res.statusCode=404;return{};}return{data:{id:assigned,type:"shell",command:"false",shellID:"sh_a",status:"exited",exit:1,time:{created:1,completed:2},output:{output:"failed",cursor:1,size:6,truncated:false}}}; }
       return{data:session()};
     });
@@ -237,7 +243,7 @@ describe("V2 completion and location boundary regressions",()=>{
   });
   it("retains assigned shell identity when post-submission observation fails",async()=>{
     let assigned="";
-    const {client}=await fixture(({method,url,body},res)=>{if(method==="POST"){assigned=body.id;res.statusCode=204;return;}if(url.pathname.includes("/message/")){res.statusCode=503;return{};}return{data:session()};});
+    const {client}=await fixture(({method,url,body},res)=>{if(method==="POST"){assigned=body.id;res.statusCode=204;return;}if(url.pathname.startsWith("/api/agent/"))return{data:{id:"build",name:"Build"}};if(url.pathname.includes("/message/")){res.statusCode=503;return{};}return{data:session()};});
     await expect(operate(client,"messages.shell",{sessionId:"ses_a",body:{command:"pwd",agent:"build"}})).rejects.toMatchObject({name:"OpenCodeSubmissionError",sessionId:"ses_a",messageId:expect.stringMatching(/^msg_/)});expect(assigned).toMatch(/^msg_/);
   });
   it("keeps default project sessions and statuses scoped to the resolved location",async()=>{
@@ -290,5 +296,117 @@ describe("V2 upstream implicit mutation safeguards",()=>{
     const {client,calls}=await fixture(()=>({data:session({revert:{messageID:"msg_a"}})}));
     await expect(operate(client,operation,{sessionId:"ses_a",body:{}})).rejects.toMatchObject({code:"UNSUPPORTED_CAPABILITY",capability:"session.staged_revert"});
     expect(calls.map(call=>call.method)).toEqual(["GET"]);
+  });
+});
+
+describe("V2 bridge origin boundary", () => {
+  let root: string, origins: string;
+  beforeEach(async () => {
+    root = await fs.mkdtemp(join(tmpdir(), "herdr-adapter-"));
+    origins = join(root, "opencode-herdr-mirror", "origins");
+    vi.stubEnv("OPENCODE_HERDR_ORIGIN_DIR", origins);
+  });
+  afterEach(async () => {
+    vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it.each(["sessions.create", "sessions.fork"] as const)("marks_only_confirmed_new_sessions: %s uses returned ID, not source or metadata", async operation => {
+    const { client, calls } = await fixture(({ method }) => ({ data: session({ id: method === "POST" ? "ses_created" : "ses_existing", title: "private-title" }) }));
+    const result = await operate(client, operation, { sessionId: "ses_existing", body: { title: "private-prompt" } });
+    expect(result.id).toBe("ses_created");
+    expect(await fs.readdir(origins)).toEqual(["ses_created.json"]);
+    expect(await fs.readFile(join(origins, "ses_created.json"), "utf8")).toBe('{"sessionId":"ses_created"}\n');
+    expect(calls.filter(call => call.method === "POST")).toHaveLength(1);
+    if (operation === "sessions.fork") expect(result).toMatchObject({ forkBoundary: { type: "through-current-history" } });
+  });
+
+  it.each(["sessions.get", "messages.enqueue", "messages.send"] as const)("does not enroll ses_existing through %s", async operation => {
+    const { client, calls } = await fixture(({ method, url, body }, res) => {
+      if (method === "POST") return { data: { id: body.id, sessionID: "ses_existing", type: "user", delivery: "queue" } };
+      if (url.pathname.endsWith("/log")) {
+        const rows = [
+          ["session.execution.started", {}],
+          ["session.inbox.delivered", { inboxID: "msg_reply" }],
+          ["session.step.started", { assistantMessageID: "msg_answer" }],
+          ["session.step.ended", { assistantMessageID: "msg_answer", finish: "stop" }],
+          ["session.execution.succeeded", {}],
+        ].map(([type, data], index) => ({ type, data: { sessionID: "ses_existing", ...data as object }, durable: { aggregateID: "ses_existing", seq: index + 1 } }));
+        res.setHeader("content-type", "text/event-stream");
+        res.end([...rows, { type: "log.synced", aggregateID: "ses_existing", seq: 5 }].map(row => `data: ${JSON.stringify(row)}\n\n`).join(""));
+        return;
+      }
+      if (url.pathname.endsWith("/inbox")) return { data: [] };
+      if (url.pathname.endsWith("/message/msg_reply")) return { data: { id: "msg_reply", type: "user", text: "reply", time: { created: 1 } } };
+      if (url.pathname.endsWith("/message/msg_answer")) return { data: { id: "msg_answer", type: "assistant", agent: "build", model: { providerID: "p", id: "m" }, time: { created: 2, completed: 3 }, content: [{ type: "text", text: "answer" }] } };
+      return { data: session({ id: "ses_existing" }) };
+    });
+    const result = operate(client, operation, { sessionId: "ses_existing", body: { messageID: "msg_reply", parts: [{ type: "text", text: "reply" }] } });
+    if (operation === "messages.send") await expect(result).resolves.toMatchObject({ info: { id: "msg_answer" }, parts: [{ type: "text", text: "answer" }] });
+    else await expect(result).resolves.toBeDefined();
+    expect(calls.filter(call => call.method === "POST")).toHaveLength(operation === "sessions.get" ? 0 : 1);
+    expect(await fs.readdir(root)).toEqual([]);
+  });
+
+  it.each(["rejected", "pre-cancelled", "lost"])("does not mark or replay %s creation", async outcome => {
+    const { client, calls } = await fixture((_, res) => {
+      if (outcome === "lost") { res.destroy(); return; }
+      res.statusCode = 403; return {};
+    });
+    const controller = new AbortController();
+    if (outcome === "pre-cancelled") controller.abort();
+    await expect(operate(client, "sessions.create", { signal: controller.signal }))
+      .rejects.toMatchObject({ name: outcome === "lost" ? "OpenCodeSubmissionError" : outcome === "rejected" ? "OpenCodeError" : "AbortError" });
+    expect(calls).toHaveLength(outcome === "pre-cancelled" ? 0 : 1);
+    expect(await fs.readdir(root)).toEqual([]);
+  });
+
+  it.each(["unsafe", "unwritable", "relative"])("marker_failure_preserves_result: %s", async fault => {
+    const normalize = vi.spyOn(normalization, "normalizeSession");
+    if (fault === "unsafe") {
+      await fs.mkdir(origins, { recursive: true, mode: 0o700 }); await fs.chmod(origins, 0o755);
+    } else if (fault === "unwritable") {
+      vi.spyOn(fs, "mkdir").mockRejectedValue(Object.assign(new Error("private-path-sentinel"), { code: "EACCES" }));
+    } else vi.stubEnv("OPENCODE_HERDR_ORIGIN_DIR", "relative-private-sentinel/origins");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { client, calls } = await fixture(() => ({ data: session({ id: "ses_created" }) }));
+    const result = await operate(client, "sessions.create", {});
+    expect(result).toBe(normalize.mock.results[0].value);
+    expect(result.id).toBe("ses_created");
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(warning.mock.calls)).not.toMatch(/private.*sentinel/);
+    expect(calls).toHaveLength(1);
+    if (fault === "unsafe") expect(await fs.readdir(origins)).toEqual([]);
+    else expect(await fs.readdir(root)).toEqual([]);
+  });
+
+  it.each(["caller", "timeout"])("abort_during_marker_does_not_reclassify_success: %s", async abort => {
+    const { client, calls } = await fixture(() => ({ data: session({ id: "ses_created" }) }));
+    const normalize = vi.spyOn(normalization, "normalizeSession");
+    const controller = new AbortController();
+    const createContext = requestContexts.createRequestContext;
+    let context: ReturnType<typeof createContext> | undefined;
+    vi.spyOn(requestContexts, "createRequestContext").mockImplementation((...args) => {
+      context = createContext(...args); vi.spyOn(context, "dispose"); return context;
+    });
+    const rename = fs.rename.bind(fs);
+    let entered!: () => void, release!: () => void;
+    const writing = new Promise<void>(resolve => { entered = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    vi.spyOn(fs, "rename").mockImplementation(async (...args) => { entered(); await held; await rename(...args); });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const result = operate(client, "sessions.create", { signal: controller.signal, timeout: 1000 });
+    try {
+      expect(await Promise.race([writing.then(() => "marker"), result.then(() => "result")])).toBe("marker");
+      expect(context?.dispose).toHaveBeenCalledTimes(1);
+      if (abort === "caller") controller.abort();
+      else await vi.advanceTimersByTimeAsync(1001);
+      expect(context?.signal.aborted).toBe(false);
+    } finally { release(); }
+    const confirmed = await result;
+    expect(confirmed).toBe(normalize.mock.results[0].value);
+    expect(confirmed.id).toBe("ses_created");
+    expect(calls).toHaveLength(1);
+    expect(await fs.readFile(join(origins, "ses_created.json"), "utf8")).toBe('{"sessionId":"ses_created"}\n');
   });
 });

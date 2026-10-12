@@ -2,7 +2,7 @@ import { operate } from "../backends/adapter.js";
 import { z } from "zod";
 import { McpServer } from "../mcp-server.js";
 import { OpenCodeClient } from "../client.js";
-import { toolJson, toolError, toolResult, directoryParam, destructive, readOnly } from "../helpers.js";
+import { toolJson, toolError, toolResult, directoryParam, destructive, readOnly, formatAgentInfo } from "../helpers.js";
 
 export function registerMiscTools(server: McpServer, client: OpenCodeClient) {
   // --- Path & VCS ---
@@ -99,7 +99,7 @@ export function registerMiscTools(server: McpServer, client: OpenCodeClient) {
 
   server.tool(
     "opencode_agent_list",
-    "List all available agents with their names, descriptions, and modes (primary/subagent)",
+    "List all available agents with their IDs, names, descriptions, and modes (primary/subagent)",
     {
       directory: directoryParam,
     },
@@ -109,12 +109,7 @@ export function registerMiscTools(server: McpServer, client: OpenCodeClient) {
         if (!agents || agents.length === 0) {
           return toolResult("No agents found.");
         }
-        const formatted = agents.map((a) => {
-          const name = a.name ?? a.id ?? "?";
-          const mode = a.mode ?? "?";
-          const desc = a.description ?? "(no description)";
-          return `- ${name} [${mode}]: ${desc}`;
-        }).join("\n");
+        const formatted = agents.map(a => `- ${formatAgentInfo(a)}`).join("\n");
         return toolResult(formatted);
       } catch (e) {
         return toolError(e);
