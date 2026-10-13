@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fork packaging (`@mageyuki/opencode-mcp`)
+
+- Unofficial fork of `AlaeddineMessadi/opencode-mcp` at `1b9552bebaf648e7dd989f3d48515d3c116c154e` (`3.1.0-rc.1`). The package is renamed to `@mageyuki/opencode-mcp`, keeps the version number `3.1.0-rc.1` of its upstream base, and keeps the `opencode-mcp` executable and MCP server name. Nothing is published yet; see [FORK.md](FORK.md).
+- Includes the divergence patch `pr29-live-observation.patch` (SHA-256 `3368e44bbef0f3e00d156ef878e19b5055624689952dac5d86cca7955583b1a0`): V2 live observation and execution evidence, guarded project read tools (essential profile 25 → 28 tools), and a Herdr origin marker.
+- Ships `dependency-lock.json`, an unchanged copy of `package-lock.json`, for manual dependency restore in an extracted package root (npm 12 does not honor `npm-shrinkwrap.json`; the file is not used automatically). See [FORK.md](FORK.md).
+- Regenerated `docs/tools.md` for those source changes; install commands and registry metadata use the scoped name. Package verification scripts accept the scoped name and npm 12's object-form `npm pack --json` output, and check the shipped lock.
+
+## [3.1.0-rc.1] - 2026-09-17
+
+Evaluation candidate for the V1/V2 compatibility foundation. The original 65-operation V2 completion gate remains blocked by upstream command correlation; this is not a completed milestone declaration.
+
+### Added
+
+- Typed backend operations, normalized results, and one compatibility manifest for all 87 tools, 10 resources, 4 templates, and 6 prompts. V2 currently maps 64 tools, retains 22 explicit V1-only exceptions, and rejects `command_execute` before mutation because V2 2.0.6 supplies no execution receipt or caller-assigned command ID.
+- Automatic or forced backend detection, read-only V2 service discovery, ownership reporting, and standalone `doctor`/`--check`, help, and version commands.
+- V2 queue submission identity, durable log observation with saved correlation state, versioned job storage, and shared ordinary-tool/native-Task workflows.
+- V2 model/agent preservation, scoped permissions, typed form values, exact OAuth attempt IDs, explicit diff ranges, staged reverts, pagination metadata, and project-filtered events.
+- macOS CI, production archive installation tests, and isolated V1/V2 compatibility checks.
+
+### Compatibility and validation
+
+- V1 behavior and stored record format remain supported. Authentication errors and ambiguous mutations never trigger fallback submission or replay.
+- Model-free integration exercised `opencode-ai@1.18.31` and `@opencode/cli@2.0.6` on Node.js 22.23.2, macOS arm64. The V2 client dependency is pinned to `@opencode/client@2.0.6`.
+- Live provider inference, live job execution, OAuth completion, and interactive permission/form flows were not verified. Those paths have fixture-backed contract and recovery tests; client UI compatibility is not claimed from those fixtures.
+- See [migration guidance](MIGRATION.md) and the generated [compatibility matrix](docs/compatibility.md) for guarded options and the upstream blocker. No package has been published by this change.
+
 ## [3.0.0] - 2026-09-16
 
 ### Breaking changes

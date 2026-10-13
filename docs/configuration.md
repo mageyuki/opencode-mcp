@@ -2,20 +2,25 @@
 
 ## Environment Variables
 
-An OpenCode server must already be running unless automatic startup is explicitly enabled. Node.js 22 or newer is required for version 3.0.0 and later.
+An OpenCode server must already be running unless automatic startup is explicitly enabled. This fork declares Node.js 24.x (`>=24.0.0 <25`); upstream 3.0.0 historically required Node.js 22 or newer. The CI workflow is configured only for exact Node.js 24.18.0 with npm 12.0.1 (a configuration target, not a CI result; see [FORK.md](../FORK.md)).
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENCODE_BASE_URL` | `http://127.0.0.1:4096` | OpenCode HTTP endpoint |
+| `OPENCODE_BACKEND` | `auto` | Detect the backend, or require `v1` or `v2` |
+| `OPENCODE_BASE_URL` | unset | Authoritative OpenCode HTTP(S) endpoint; if absent, probe loopback `http://127.0.0.1:4096` then discover an existing local V2 service |
 | `OPENCODE_SERVER_USERNAME` | `opencode` | Username when HTTP authentication is enabled |
 | `OPENCODE_SERVER_PASSWORD` | unset | HTTP password; set matching credentials on OpenCode and MCP |
-| `OPENCODE_AUTO_SERVE` | `false` | Set exactly `true` to allow a local child server to start |
+| `OPENCODE_AUTO_SERVE` | `false` | Set exactly `true` to allow an owned local V1 child; never starts V2 |
 | `OPENCODE_DEFAULT_PROVIDER` | unset | Default prompt provider ID |
 | `OPENCODE_DEFAULT_MODEL` | unset | Default prompt model ID; configure both defaults together |
 | `OPENCODE_TOOL_PROFILE` | `full` | `full` or `essential`; changes the advertised tool set |
 | `OPENCODE_TASK_STORE` | see below | Root directory for persisted job records |
 
 Choose provider/model IDs from `opencode_setup` and `opencode_provider_models`. Authentication credentials are global to OpenCode; `directory` does not make provider credentials project-specific.
+
+An explicit URL never falls back to a different server. URLs must be HTTP(S), without embedded credentials, queries, or fragments; configure authentication using the environment variables above. HTTP 401/403 ends detection without alternate probes or startup. A present but invalid or unresponsive local service registration also prevents replacement startup. V2 discovery uses the pinned 2.0.6 registration-file contract and `Service.discover()`; it never calls `Service.ensure()` or `Service.stop()`.
+
+Run `opencode-mcp doctor --json [--directory ABSOLUTE_SERVER_PATH]` after installing this build, or `node dist/index.js doctor` from source. Doctor shares a 15-second deadline across checks, performs no inference or writes, and ignores auto-start permission. Project access is checked only when a directory is supplied. The report identifies backend, recognized version, connection source, ownership, and disconnect behavior; credentials and raw upstream responses are omitted. `--check` is an alias. Exit `0` means ready, `1` means a failed check, and `2` means invalid CLI arguments.
 
 The `essential` profile keeps the common delegation, observation, and required-input workflows available with fewer tool definitions. Select `full` for low-level API tools, TUI control, or provider administration. The profile is a discovery choice, not a security boundary: coding workflows can still modify files or run commands through OpenCode according to its permissions.
 
@@ -35,13 +40,13 @@ These examples launch the published npm package. When testing a source build, re
 
 ```bash
 # Current project, private to your account
-claude mcp add opencode -- npx -y opencode-mcp
+claude mcp add opencode -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
 
 # Available across projects
-claude mcp add opencode --scope user -- npx -y opencode-mcp
+claude mcp add opencode --scope user -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
 
 # Custom endpoint
-claude mcp add opencode --env OPENCODE_BASE_URL=http://127.0.0.1:8080 -- npx -y opencode-mcp
+claude mcp add opencode --env OPENCODE_BASE_URL=http://127.0.0.1:8080 -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
 ```
 
 See [Claude Code MCP configuration](https://code.claude.com/docs/en/mcp) for scopes and environment expansion.
@@ -55,7 +60,7 @@ Use the following server entry in the client's MCP configuration:
   "mcpServers": {
     "opencode": {
       "command": "npx",
-      "args": ["-y", "opencode-mcp"],
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"],
       "env": { "OPENCODE_TOOL_PROFILE": "essential" }
     }
   }
@@ -76,7 +81,7 @@ Use `.vscode/mcp.json` in the workspace, or run **MCP: Open User Configuration**
     "opencode": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "opencode-mcp"]
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"]
     }
   }
 }
@@ -95,7 +100,7 @@ schema: v1
 mcpServers:
   - name: opencode
     command: npx
-    args: ["-y", "opencode-mcp"]
+    args: ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"]
 ```
 
 Use Agent mode. See [Continue MCP configuration](https://docs.continue.dev/reference) and [workspace configuration](https://docs.continue.dev/guides/configuring-models-rules-tools).
@@ -109,7 +114,7 @@ Use **Settings → AI → MCP Servers → Add Local Server**, or edit the settin
   "context_servers": {
     "opencode": {
       "command": "npx",
-      "args": ["-y", "opencode-mcp"],
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"],
       "env": {}
     }
   }
@@ -120,11 +125,11 @@ See [Zed MCP configuration](https://zed.dev/docs/ai/mcp). The command is a strin
 
 ### Amazon Q Developer
 
-Open the tools/MCP panel, add a **STDIO** server named `opencode`, set command `npx`, and arguments `-y opencode-mcp`. Choose local or global scope. The current IDE UI stores these settings in `.amazonq/default.json` or `~/.aws/amazonq/default.json`; see [Amazon Q configuration](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/mcp-ide.html).
+Open the tools/MCP panel, add a **STDIO** server named `opencode`, set command `npx`, and arguments `-y @mageyuki/opencode-mcp@3.1.0-rc.1`. Choose local or global scope. The current IDE UI stores these settings in `.amazonq/default.json` or `~/.aws/amazonq/default.json`; see [Amazon Q configuration](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/mcp-ide.html).
 
 ### Cline
 
-Use Cline's MCP server settings to add a stdio server with command `npx` and arguments `-y opencode-mcp`.
+Use Cline's MCP server settings to add a stdio server with command `npx` and arguments `-y @mageyuki/opencode-mcp@3.1.0-rc.1`.
 
 ## Required Input and Permissions
 
@@ -150,6 +155,6 @@ opencode serve --hostname 127.0.0.1 --port 4096
 
 Or share the TUI's server by starting it with `opencode --port 4096`. For custom flags, start OpenCode manually. `OPENCODE_SERVE_ARGS` is unsupported by the SDK launcher.
 
-To opt in to a separate local child server, add `"OPENCODE_AUTO_SERVE": "true"` under your MCP server's `env`. Automatic startup accepts loopback HTTP endpoints only and shuts down only the child it launched. An existing external server remains running when the MCP client disconnects.
+To opt in to a separate local V1 child server, add `"OPENCODE_AUTO_SERVE": "true"` under your MCP server's `env`. Automatic startup accepts loopback HTTP endpoints only and shuts down only the child it launched. An existing external server or discovered V2 service remains running when the MCP client disconnects. Start V2 separately and use its URL or existing local registration.
 
 When other TUI instances are running, prefer a shared explicitly configured server. [Issue #18](https://github.com/AlaeddineMessadi/opencode-mcp/issues/18) reports hangs when a second server shares OpenCode storage; the underlying cause has not been confirmed. MCP does not scan processes to select a TUI.

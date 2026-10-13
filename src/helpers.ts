@@ -1,3 +1,4 @@
+import { BackendCapabilityError } from "./backends/contracts.js";
 /**
  * Smart response formatting helpers.
  *
@@ -42,7 +43,7 @@ export const outputFormatParam = z.discriminatedUnion("type", [
     schema: z.record(z.string(), z.unknown()),
     retryCount: z.number().int().nonnegative().optional(),
   }),
-]).optional().describe("Response format: plain text or JSON constrained by a JSON Schema. JSON Schema requires OpenCode permission for the StructuredOutput tool.");
+]).optional().describe("Response format: plain text, or on V1 only JSON constrained by a JSON Schema. V2 rejects JSON Schema. V1 JSON Schema requires OpenCode permission for the StructuredOutput tool.");
 
 // ── Default Provider/Model ────────────────────────────────────────────
 
@@ -350,7 +351,8 @@ export function safeStringify(
   if (!Number.isInteger(maxLength) || maxLength < 32) {
     throw new Error("JSON output budget must be an integer of at least 32 characters.");
   }
-  const json = JSON.stringify(value ?? null, null, 2);
+  const serialized = Array.isArray(value) && "pagination" in value ? { data: value, ...(value.pagination as object) } : value;
+  const json = JSON.stringify(serialized ?? null, null, 2);
   if (json.length <= maxLength) return json;
   const envelope = (length: number) => JSON.stringify({
     truncated: true,
@@ -475,6 +477,18 @@ function redactUrlSecrets(url: string): string {
   }
 }
 
+/** Keep the display name distinct from the selector accepted by each backend. */
+export function formatAgentInfo(agent: Record<string, unknown>): string {
+  const selector = agent.id === undefined ? `V1 name selector: ${agent.name ?? "?"}` : `ID: ${agent.id}`;
+  return `${selector} | Name: ${agent.name ?? agent.id ?? "?"} [${agent.mode ?? "?"}]: ${agent.description ?? "(no description)"}`;
+}
+
+/** Preserve the startup warning rather than replacing it with its cause or a status. */
+export function startupFailureText(error: unknown): string | undefined {
+  if (!error || typeof error !== "object" || !("name" in error) || error.name !== "ExecutionStartFailed") return;
+  return `Error: ${JSON.stringify(error)}`;
+}
+
 /**
  * Redact values that look like API keys, tokens, or secrets.
  * Replaces the value with the first 4 characters + "***REDACTED***".
@@ -540,6 +554,7 @@ export function redactSecrets(value: unknown): unknown {
  *  - Everything else → not configured
  */
 export function isProviderConfigured(p: Record<string, unknown>): boolean {
+  if (p.source === "integration") return p.configured === true;
   const source = p.source as string | undefined;
   if (source === "env" || source === "config" || source === "api") return true;
   if (source === "custom") {
@@ -579,6 +594,9 @@ export function resolveSessionStatus(raw: unknown): string {
  * Standard tool response builder.
  */
 export function toolResult(text: string, isError = false, structuredContent?: Record<string, unknown>) {
+  const data = structuredContent?.data;
+  if (Array.isArray(data) && "pagination" in data) structuredContent = { ...structuredContent, ...(data.pagination as object) };
+  if (Array.isArray(data) && "attribution" in data) { structuredContent = { ...structuredContent, attribution: data.attribution, range: (data as unknown as {range:unknown}).range }; text += "\nV2 attribution is by turn across the explicit message range."; }
   return {
     content: [{ type: "text" as const, text }],
     ...(isError ? { isError: true } : {}),
@@ -592,7 +610,11 @@ export function toolError(e: unknown) {
   const text = suggestions
     ? `Error: ${msg}\n\n**Suggestions:**\n${suggestions}`
     : `Error: ${msg}`;
-  return toolResult(text, true);
+  if (e && typeof e === "object" && "submissionOutcome" in e && e.submissionOutcome === "unknown") {
+    const recovery = e as {sessionId?:string;messageId?:string};
+    return toolResult(text, true, { error: { code: "SUBMISSION_OUTCOME_UNKNOWN", message: msg }, ...recovery.sessionId ? { sessionId: recovery.sessionId } : {}, ...recovery.messageId ? { messageId: recovery.messageId } : {} });
+  }
+  return toolResult(text, true, e instanceof BackendCapabilityError ? { error: { code: e.code, capability: e.capability, backend: e.backend, message: e.message } } : undefined);
 }
 
 /**

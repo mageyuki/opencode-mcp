@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { McpServer, ResourceTemplate } from "../src/mcp-server.js";
 import { OpenCodeClient } from "../src/client.js";
@@ -9,6 +9,11 @@ import { registerProviderTools } from "../src/tools/provider.js";
 import { registerMessageTools } from "../src/tools/message.js";
 import { registerSessionTools } from "../src/tools/session.js";
 import { analyzeMessageResponse, formatMessageResponse, redactSecrets, safeStringify, toolJson, toolResult } from "../src/helpers.js";
+import { registerInputTools } from "../src/tools/input.js";
+import { registerWorkflowTools } from "../src/tools/workflow.js";
+import { JobService } from "../src/jobs.js";
+
+afterEach(() => vi.restoreAllMocks());
 
 function capture() {
   const tools = new Map<string, { schema: z.ZodRawShape; handler: Function }>();
@@ -72,6 +77,33 @@ describe("provider and configuration contracts", () => {
 });
 
 describe("machine-readable response contracts", () => {
+  it("registers explicit optional evidence on real get/check output schemas, retaining legacy responses and read-only annotations", () => {
+    const registered = new Map<string, any>();
+    vi.spyOn(McpServer.prototype, "registerTool").mockImplementation(((name: string, config: unknown) => { registered.set(name, config); return {}; }) as any);
+    const server = new McpServer({ name: "fixture", version: "1" });
+    const client = new OpenCodeClient({ baseUrl: "http://fixture.invalid", backend: "v2" });
+    const service = new JobService(client, { storeRoot: null });
+    registerInputTools(server, client, service); registerWorkflowTools(server, client, service);
+    const legacy = { text: "unknown", isError: false, status: "unknown" };
+    const evidence = { scope: "current-process-foreground", attribution: "session-only", observedAt: 1000, root: "active_observed", subtree: "active_observed", activeSessionIDs: ["root"], discovery: "partial", issues: [{ source: "discovery", code: "timeout" }] };
+    for (const name of ["opencode_job_get", "opencode_check"]) {
+      const { outputSchema, annotations, inputSchema } = registered.get(name);
+      expect(outputSchema.safeParse(legacy).success).toBe(true);
+      expect(outputSchema.parse({ ...legacy, executionEvidence: evidence }).executionEvidence).toEqual(evidence);
+      for (const field of ["scope", "attribution", "root", "subtree", "discovery"]) expect(outputSchema.safeParse({ ...legacy, executionEvidence: { ...evidence, [field]: "invalid" } }).success).toBe(false);
+      expect(outputSchema.safeParse({ ...legacy, executionEvidence: { ...evidence, issues: [{ source: "active", code: "private exception" }] } }).success).toBe(false);
+      expect(annotations.readOnlyHint).toBe(true); expect(inputSchema.shape).not.toHaveProperty("includeExecutionEvidence");
+      const catalog = server.catalog.find(tool => tool.name === name)!;
+      expect((catalog.outputSchema.properties as any).executionEvidence).toBeDefined();
+    }
+    const nonOptedTools = ["opencode_run", "opencode_fire", "opencode_wait", "opencode_job_cancel"];
+    for (const name of nonOptedTools) {
+      const { outputSchema } = registered.get(name);
+      const catalog = server.catalog.find(tool => tool.name === name)!;
+      expect(outputSchema.shape).not.toHaveProperty("executionEvidence");
+      expect(catalog.outputSchema.properties).not.toHaveProperty("executionEvidence");
+    }
+  });
   it("keeps large resource JSON valid and within budget, including escaped text", () => {
     const value = { data: '\n"\\'.repeat(20000) };
     for (const budget of [32, 100, 50000]) {

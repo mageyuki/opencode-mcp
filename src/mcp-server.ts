@@ -1,9 +1,12 @@
+import { capabilityFor } from "./backends/capabilities.js";
+import type { BackendIdentity } from "./backends/contracts.js";
 /** Shared registration contract. SDK v2 owns protocol validation and transport serving. */
 import { McpServer as SdkServer, ResourceTemplate, type ServerContext, type ToolAnnotations,
   type ResourceMetadata, type ReadResourceCallback, type ReadResourceTemplateCallback,
   type InputRequiredResult, type GetPromptResult, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { withRequestOptions } from "./async.js";
+import { executionEvidenceSchema } from "./job-contract.js";
 
 export { ResourceTemplate };
 export type ToolContext = { signal?: AbortSignal; _meta?: Record<string, unknown>; mcpReq?: ServerContext["mcpReq"] };
@@ -17,7 +20,10 @@ const readers = new Set(`health setup status context conversation sessions_overv
   mcp_status tool_ids tool_list events_poll question_list job_get job_list`.split(/\s+/).map(n => `opencode_${n}`));
 const essential = new Set(`setup provider_list provider_models ask reply run fire check wait conversation review_changes context status
   session_abort session_create session_list permission_list session_permission question_list question_reply question_reject
-  job_get job_list job_cancel job_input`.split(/\s+/).map(n => `opencode_${n}`));
+  job_get job_list job_cancel job_input file_read file_list find_file`.split(/\s+/).map(n => `opencode_${n}`));
+const projectReaders = new Set(["opencode_file_read", "opencode_file_list", "opencode_find_file"]);
+const projectError = (code: string): CallToolResult => withStructuredText({ isError: true,
+  content: [{ type: "text", text: code }], structuredContent: { error: { code, message: code } } });
 
 export function annotationsFor(name: string): ToolAnnotations {
   const readOnly = readers.has(name);
@@ -31,7 +37,8 @@ function outputSchema(name: string) {
   if (["opencode_run", "opencode_fire", "opencode_wait", "opencode_check", "opencode_job_get", "opencode_job_cancel"].includes(name)) {
     return z.object({ ...common, sessionId: z.string().optional(), jobId: z.string().optional(),
       messageId: z.string().optional(), directory: z.string().optional(), status: jobStatusSchema,
-      result: z.unknown().optional(), error: z.unknown().optional() }).loose();
+      result: z.unknown().optional(), error: z.unknown().optional(),
+      ...(name === "opencode_job_get" || name === "opencode_check" ? { executionEvidence: executionEvidenceSchema.optional() } : {}) }).loose();
   }
   if (name === "opencode_session_create") return z.object({ ...common, sessionId: z.string(), session: z.unknown() }).loose();
   return z.object({ ...common, data: z.unknown().optional() }).loose();
@@ -47,6 +54,7 @@ export function withStructuredText(result: CallToolResult): CallToolResult {
 
 export class McpServer extends SdkServer {
   profile: ToolProfile = "full";
+  backendIdentity?: BackendIdentity;
   readonly catalog: Array<{ name: string; description: string; inputSchema: Record<string, unknown>;
     outputSchema: Record<string, unknown>; annotations: ToolAnnotations }> = [];
 
@@ -57,13 +65,32 @@ export class McpServer extends SdkServer {
     const handler = rest[rest.length - 1] as (args: z.infer<z.ZodObject<S>>, extra?: ToolContext) => Promise<CallToolResult | InputRequiredResult>;
     // Central explicit inventory is authoritative; scattered legacy hints may be incomplete.
     const annotations = annotationsFor(name);
-    const input = z.object(shape);
+    const guarded = this.profile === "essential" && projectReaders.has(name);
+    const input = guarded ? z.object(shape).strict() : z.object(shape);
     const output = outputSchema(name);
     this.catalog.push({ name, description, inputSchema: z.toJSONSchema(input), outputSchema: z.toJSONSchema(output), annotations });
-    return this.registerTool(name, { description, inputSchema: input, outputSchema: output, annotations },
-      async (args, ctx) => withRequestOptions({ signal: ctx.mcpReq.signal }, async () => {
+    // SDK validation errors stringify arbitrary input/unknown keys before the
+    // handler. These three tools validate strictly inside our fixed-error
+    // boundary instead, while publishing the same strict Standard JSON Schema.
+    const transportInput = guarded ? { "~standard": { version: 1 as const, vendor: "project-read",
+      jsonSchema: { input: () => z.toJSONSchema(input), output: () => z.toJSONSchema(input) },
+      validate: (value: unknown) => ({ value: value as z.infer<z.ZodObject<S>> }) } } : input;
+    return this.registerTool(name, { description, inputSchema: transportInput, outputSchema: output, annotations },
+      async (args: z.infer<z.ZodObject<S>>, ctx: ServerContext) => withRequestOptions({ signal: ctx.mcpReq.signal }, async () => {
+        if (guarded) {
+          const parsed = input.safeParse(args);
+          if (!parsed.success) return projectError("PROJECT_READ_INVALID_REQUEST");
+          args = parsed.data;
+        }
+        const capability = capabilityFor(name);
+        if (this.backendIdentity?.kind === "v2" && capability && capability.v2 !== "supported") {
+          return withStructuredText({ isError: true, content: [{ type: "text", text: `${name} is unavailable on V2: ${capability.reason}` }], structuredContent: { error: { code: "UNSUPPORTED_CAPABILITY", capability: name, backend: "v2", message: capability.reason } } });
+        }
         const result = await handler(args, { signal: ctx.mcpReq.signal, _meta: ctx.mcpReq._meta, mcpReq: ctx.mcpReq });
-        return result.resultType === "input_required" ? result as InputRequiredResult : withStructuredText(result as CallToolResult);
+        if (result.resultType === "input_required") return result as InputRequiredResult;
+        const normalized = withStructuredText(result as CallToolResult);
+        if (guarded && Buffer.byteLength(JSON.stringify(normalized)) > 1024 * 1024) return projectError("PROJECT_READ_BUDGET");
+        return normalized;
       }));
   }
 

@@ -1,32 +1,35 @@
+import { operate } from "../backends/adapter.js";
 import { inputRequired } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { McpServer } from "../mcp-server.js";
 import { OpenCodeClient } from "../client.js";
 import { JobService } from "../jobs.js";
-import { directoryParam, normalizeDirectory, toolJson, toolResult } from "../helpers.js";
-import { decodeInputResponses, inputAnswerSchema, inputRequests, supportsForm } from "../task-input.js";
+import { jobObservationMessage } from "../job-contract.js";
+import { directoryParam, normalizeDirectory, toolJson, toolResult, toolError, startupFailureText } from "../helpers.js";
+import { decodeInputResponses, inputAnswerSchema, inputRequests, supportsForm, canUseNativeForms } from "../task-input.js";
 
-const errorResult = (error: unknown) => toolResult(error instanceof Error ? error.message : String(error), true);
+const errorResult = toolError;
 
 export function registerInputTools(server: McpServer, client: OpenCodeClient, jobs: JobService) {
   server.tool("opencode_question_list", "List pending OpenCode questions, optionally filtered to a session.", {
     sessionId: z.string().optional(), directory: directoryParam,
   }, async ({ sessionId, directory }) => {
     try {
-      const questions = await client.get<any[]>("/question", undefined, normalizeDirectory(directory));
+      const questions = await operate(client, "forms.list", { directory: normalizeDirectory(directory) });
       return toolJson(sessionId ? questions.filter(q => q.sessionID === sessionId) : questions);
     } catch (error) { return errorResult(error); }
   });
-  server.tool("opencode_question_reply", "Answer an OpenCode question request. Supply one array of selected labels or free text per question.", {
-    requestId: z.string().min(1), answers: z.array(z.array(z.string())), directory: directoryParam,
-  }, async ({ requestId, answers, directory }) => {
-    try { return toolJson(await client.post(`/question/${encodeURIComponent(requestId)}/reply`, { answers }, { directory: normalizeDirectory(directory) })); }
+  server.tool("opencode_question_reply", "Answer an OpenCode question request. V1 accepts answers arrays. V2 accepts typed field-keyed values matching the returned form; include sessionId to identify the session.", {
+    requestId: z.string().min(1), sessionId: z.string().optional(), answers: z.array(z.array(z.string())).optional(),
+    values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])).optional(), directory: directoryParam,
+  }, async ({ requestId, sessionId, answers, values, directory }) => {
+    try { return toolJson(await operate(client, "forms.reply", { sessionId, requestId: requestId, body: { ...(answers ? { answers } : {}), ...(values ? { values } : {}) }, ...({ directory: normalizeDirectory(directory) }) })); }
     catch (error) { return errorResult(error); }
   });
   server.tool("opencode_question_reject", "Reject a pending OpenCode question explicitly.", {
-    requestId: z.string().min(1), directory: directoryParam,
-  }, async ({ requestId, directory }) => {
-    try { return toolJson(await client.post(`/question/${encodeURIComponent(requestId)}/reject`, undefined, { directory: normalizeDirectory(directory) })); }
+    requestId: z.string().min(1), sessionId: z.string().optional(), directory: directoryParam,
+  }, async ({ requestId, sessionId, directory }) => {
+    try { return toolJson(await operate(client, "forms.reject", { sessionId, requestId: requestId, ...({ directory: normalizeDirectory(directory) }) })); }
     catch (error) { return errorResult(error); }
   });
   for (const action of ["get", "cancel"] as const) {
@@ -34,8 +37,12 @@ export function registerInputTools(server: McpServer, client: OpenCodeClient, jo
       jobId: z.string().min(1),
     }, async ({ jobId }, extra) => {
       try {
-        const job = await jobs[action](jobId, { signal: extra?.signal });
-        return toolResult(job.text ?? `Job ${jobId}: ${job.status}`, job.status === "failed", { ...job });
+        const job = action === "get"
+          ? await jobs.get(jobId, { signal: extra?.signal, includeExecutionEvidence: true })
+          : await jobs.cancel(jobId, { signal: extra?.signal });
+        const text = startupFailureText(job.error) ?? job.text ?? `Job ${jobId}: ${job.status}`;
+        const note = action === "get" ? jobObservationMessage(job) : undefined;
+        return toolResult(note ? `${text}\n\n${note}` : text, job.status === "failed", { ...job });
       } catch (error) { return toolResult(error instanceof Error ? error.message : String(error), true, { jobId, status: "unknown" }); }
     });
   }
@@ -54,10 +61,10 @@ export function registerInputTools(server: McpServer, client: OpenCodeClient, jo
       if (input?.length) job = await jobs.update(jobId, input, options);
       if (job.status === "input_required" && job.inputs?.length) {
         const envelope = extra?.mcpReq?.envelope as Record<string, unknown> | undefined;
-        if (supportsForm(envelope?.["io.modelcontextprotocol/clientCapabilities"])) return inputRequired({ inputRequests: inputRequests(job.inputs) });
-        return toolResult("OpenCode needs input. Call opencode_job_input with explicit responses for the pending IDs.", false, { ...job });
+        if (supportsForm(envelope?.["io.modelcontextprotocol/clientCapabilities"]) && canUseNativeForms(job.inputs)) return inputRequired({ inputRequests: inputRequests(job.inputs) });
+        return toolResult("OpenCode needs input. Call opencode_job_input with explicit responses for the pending IDs. V2 forms require field-keyed typed values matching the returned fields; always approval requires scope=project, rejection requires scope=session.", false, { ...job });
       }
-      return toolResult(job.text ?? `Job ${jobId}: ${job.status}`, job.status === "failed", { ...job });
+      return toolResult(startupFailureText(job.error) ?? job.text ?? `Job ${jobId}: ${job.status}`, job.status === "failed", { ...job });
     } catch (error) { return errorResult(error); }
   });
 }

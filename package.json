@@ -1,7 +1,7 @@
 {
-  "name": "opencode-mcp",
-  "version": "3.0.0",
-  "description": "MCP server for OpenCode coding workflows, durable async jobs, project resources, and explicit user input",
+  "name": "@mageyuki/opencode-mcp",
+  "version": "3.1.0-rc.1",
+  "description": "Unofficial fork of opencode-mcp: MCP server for OpenCode coding workflows, durable async jobs, project resources, and explicit user input, with V2 live-observation and guarded project-read changes",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -11,7 +11,11 @@
     "dist",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "MIGRATION.md",
+    "docs",
+    "FORK.md",
+    "dependency-lock.json"
   ],
   "scripts": {
     "build": "tsc",
@@ -24,7 +28,9 @@
     "prepublishOnly": "npm run build",
     "pretest": "npm run build",
     "docs:generate": "npm run build && node scripts/generate-tool-docs.mjs",
-    "docs:check": "npm run build && node scripts/generate-tool-docs.mjs --check"
+    "docs:check": "npm run build && node scripts/generate-tool-docs.mjs --check",
+    "test:package": "node scripts/test-package.mjs",
+    "test:compat": "node scripts/test-compat.mjs"
   },
   "keywords": [
     "mcp",
@@ -42,26 +48,31 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AlaeddineMessadi/opencode-mcp.git"
+    "url": "git+https://github.com/mageyuki/opencode-mcp.git"
   },
-  "homepage": "https://github.com/AlaeddineMessadi/opencode-mcp#readme",
+  "homepage": "https://github.com/mageyuki/opencode-mcp#readme",
   "bugs": {
-    "url": "https://github.com/AlaeddineMessadi/opencode-mcp/issues"
+    "url": "https://github.com/mageyuki/opencode-mcp/issues"
   },
   "author": "Alaeddine Messadi",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "tag": "rc"
+  },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0 <25"
   },
   "dependencies": {
-    "@modelcontextprotocol/core": "^2.0.0",
-    "@modelcontextprotocol/server": "^2.0.0",
+    "@modelcontextprotocol/core": "2.2.0",
+    "@modelcontextprotocol/server": "2.2.0",
     "@opencode-ai/sdk": "^1.18.31",
+    "@opencode/client": "2.0.6",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.0.0",
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/client": "2.2.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.1.11",
     "typescript": "^5.7.0",
