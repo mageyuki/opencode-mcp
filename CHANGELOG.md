@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Stable 3.1.0 packaging (`@mageyuki/opencode-mcp`)
+
+- On 2026-10-13 the user chose stable `3.1.0` with dist-tag `latest` as the release target for this fork, instead of the earlier unpublished `3.1.0-rc.1` / `rc` candidate. Only version metadata, the dist-tag, install examples and release notes change; dependencies, the lock graph, source and runtime are unchanged. `3.1.0` is awaiting manual publication and is not released until npm confirms it. The upstream `3.1.0-rc.1` entry below is historical and is not rewritten.
+
 ### Fork packaging (`@mageyuki/opencode-mcp`)
 
 - Unofficial fork of `AlaeddineMessadi/opencode-mcp` at `1b9552bebaf648e7dd989f3d48515d3c116c154e` (`3.1.0-rc.1`). The package is renamed to `@mageyuki/opencode-mcp`, keeps the version number `3.1.0-rc.1` of its upstream base, and keeps the `opencode-mcp` executable and MCP server name. Nothing is published yet; see [FORK.md](FORK.md).

@@ -29,7 +29,7 @@ For V2, start OpenCode separately and supply its URL, or let this bridge discove
 For Claude Code:
 
 ```bash
-claude mcp add opencode -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
+claude mcp add opencode -- npx -y @mageyuki/opencode-mcp@3.1.0
 ```
 
 For clients using an `mcpServers` configuration:
@@ -39,7 +39,7 @@ For clients using an `mcpServers` configuration:
   "mcpServers": {
     "opencode": {
       "command": "npx",
-      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0-rc.1"]
+      "args": ["-y", "@mageyuki/opencode-mcp@3.1.0"]
     }
   }
 }

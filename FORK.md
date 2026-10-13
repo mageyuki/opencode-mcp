@@ -1,14 +1,14 @@
 # Unofficial fork: @mageyuki/opencode-mcp
 
-**Status (2026-10-12): source prepared; fork repository exists; npm package not published.** The public fork `mageyuki/opencode-mcp` exists (fork of `AlaeddineMessadi/opencode-mcp`; verified 2026-10-12). The `repository`, `homepage`, and `bugs` fields in `package.json` already point at it. No npm package has been published yet, so the npm badge and install links in `README.md` are **pending** until publication. Do not describe this package as released until it has been published to npm.
+**Status (2026-10-13): stable `3.1.0` (dist-tag `latest`) prepared; fork repository exists; npm package not published.** The public fork `mageyuki/opencode-mcp` exists (fork of `AlaeddineMessadi/opencode-mcp`; verified 2026-10-12). The `repository`, `homepage`, and `bugs` fields in `package.json` already point at it. The user chose stable `3.1.0` with the `latest` tag as the release target and will publish it manually; nothing has been published, so the npm badge and install links in `README.md` are **pending** until publication. Do not describe this package as released until it has been published to npm and verified.
 
 ## Identity
 
 | Item | Value |
 |---|---|
 | Package | `@mageyuki/opencode-mcp` (public scoped; `publishConfig.access = public`) |
-| Version | `3.1.0-rc.1`, the version of the upstream base (see below) |
-| npm dist-tag | `rc` (`publishConfig.tag`; npm requires an explicit tag for prerelease versions) |
+| Version | `3.1.0` (stable; prepared, not published; see below for the earlier `3.1.0-rc.1` candidate history) |
+| npm dist-tag | `latest` (`publishConfig.tag`) |
 | Executable | `opencode-mcp` (unchanged), MCP `serverInfo.name` `opencode-mcp` (unchanged) |
 | License | MIT; `LICENSE` and the original `Copyright (c) 2025 Alaeddine Messadi` notice are unchanged |
 | Upstream | https://github.com/AlaeddineMessadi/opencode-mcp |
@@ -23,9 +23,11 @@ The source is the upstream base commit plus every hunk and new file of `pr29-liv
 
 Package-only differences from patch-applied source: package name/description/repository metadata/`publishConfig`/`files`/`engines` in `package.json` (Node.js 24 series; see maintenance policy), the matching name fields in `package-lock.json`, the authorized dependency repair described under "Dependency repair" (root MCP dependency pins and a targeted lock refresh), this file, README banner and scoped install commands, a changelog entry, a regenerated `docs/tools.md`, a shipped `dependency-lock.json`, and scoped-name/npm-12 handling in `scripts/test-package.mjs` and `tests/compat-harness.test.ts`.
 
-## Why the version number is unchanged
+## Version history and the stable 3.1.0 decision
 
-`3.1.0-rc.1` is the upstream base version. The scoped name is a distinct npm namespace, so it cannot collide with the unscoped `opencode-mcp` (whose published `latest` is 3.0.0; `3.1.0-rc.1` is not published there). The number records the base the fork derives from; the divergence is identified by the name, description, this file, and the README banner. Published versions are immutable: changing their shipped bytes requires a new version. This still-unpublished candidate keeps `3.1.0-rc.1` and dist-tag `rc` under explicit user approval; repacking it records a new integrity (SRI), not a published-version replacement.
+The upstream base commit has `package.json` version `3.1.0-rc.1`; that remains the base's historical version (the upstream repository and its changelog entry are unchanged). This fork was first prepared as an unpublished `3.1.0-rc.1` candidate with dist-tag `rc`, and its earlier archives and qualification notes in this file refer to that candidate. On 2026-10-13 the user explicitly chose to prepare stable `3.1.0` with the `latest` tag instead; `3.1.0-rc.1` is not published by this release, and the old candidate archives are history, not release artifacts. The only changes for this decision are the version metadata (`package.json`, `package-lock.json` root version, the identical `dependency-lock.json`), the dist-tag, and the install examples and release notes; the dependency graph, source and runtime are unchanged.
+
+The scoped name is a distinct npm namespace, so it cannot collide with the unscoped `opencode-mcp` (whose published `latest` is 3.0.0). The divergence from upstream is identified by the name, description, this file, and the README banner. Published versions are immutable: changing the shipped bytes of a published version requires a new version. `3.1.0` is awaiting manual publication by the user; do not treat it as released until npm confirms it.
 
 ## Independent fork maintenance policy
 
@@ -78,10 +80,10 @@ The dev client/SDK and transitive updates and the coordinated server/core update
 
 ## Shipped dependency lock (`dependency-lock.json`)
 
-`dependency-lock.json` is a byte-for-byte copy of `package-lock.json` (root name/version `@mageyuki/opencode-mcp` `3.1.0-rc.1`; root `engines` `>=24.0.0 <25`; resolved graph as updated by the dependency repair above). It is an intentional public pin of the production dependency tree for one purpose: restoring dependencies into an extracted package root.
+`dependency-lock.json` is a byte-for-byte copy of `package-lock.json` (root name/version `@mageyuki/opencode-mcp` `3.1.0`; root `engines` `>=24.0.0 <25`; resolved graph as updated by the dependency repair above). It is an intentional public pin of the production dependency tree for one purpose: restoring dependencies into an extracted package root.
 
 - **npm 12 does not honor `npm-shrinkwrap.json`.** It neither packs nor loads one, from the project root or from inside a dependency tarball, so a shrinkwrap cannot be shipped with the npm 12 toolchain this fork builds with. The lock therefore ships under a non-reserved filename.
-- **Nothing uses it automatically.** `npm install @mageyuki/opencode-mcp@3.1.0-rc.1` ignores it; consumers who install the package get normal semver resolution of the declared ranges.
+- **Nothing uses it automatically.** `npm install @mageyuki/opencode-mcp@3.1.0` ignores it; consumers who install the package get normal semver resolution of the declared ranges.
 - **Manual use only.** In an extracted package root, copy it to `package-lock.json` and run `npm ci --omit=dev --ignore-scripts`; the root `dist/index.js` then runs. This installs or switches nothing by itself; any deployment is a separate decision.
 - **Keep it in sync.** Whenever `package-lock.json` changes, copy it to `dependency-lock.json` in the same change. `npm run test:package` fails if the packed file differs from `package-lock.json` or its root name/version differ from the package.
 
