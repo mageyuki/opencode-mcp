@@ -23,7 +23,7 @@ Alternatively, share your TUI's server by starting it with `opencode --port 4096
 For Claude Code:
 
 ```bash
-claude mcp add opencode -- npx -y @mageyuki/opencode-mcp@3.1.0-rc.1
+claude mcp add opencode -- npx -y @mageyuki/opencode-mcp@3.1.0
 ```
 
 Other clients have different configuration shapes. Follow the [client configuration guide](configuration.md); for example VS Code uses `.vscode/mcp.json` with a `servers` object, while Continue uses YAML.
