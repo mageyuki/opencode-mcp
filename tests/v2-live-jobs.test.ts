@@ -426,23 +426,31 @@ it("get/check enrich the original durable turn by both identities in compact/det
 
 it("unknown wait/run/ask/reply/input polling remains default-off while cancel retains its uncertainty guard", async () => {
   const f = await lostFixture(); const handlers = handlersFor(f);
-  const realGet = f.service.get.bind(f.service); let reads = 0;
-  vi.spyOn(f.service, "get").mockImplementation(async (...args) => { const job = await realGet(...args); expect(job.status).toBe("unknown"); reads++; return job; });
+  const realGet = f.service.get.bind(f.service); let reads = 0; let onRead: (() => void) | undefined;
+  vi.spyOn(f.service, "get").mockImplementation(async (...args) => { const job = await realGet(...args); expect(job.status).toBe("unknown"); reads++; onRead?.(); return job; });
   vi.spyOn(f.service, "start").mockResolvedValue(f.started);
   f.enqueue.mockImplementation(async operation => { if (operation === "sessions.create") return { id: "session" } as never; throw new Error("Unexpected operation"); });
-  for (let n = 0; n < 2; n++) {
-    for (const [name, args] of [
-      ["opencode_wait", { jobId: f.started.jobId, timeoutSeconds: 0.06, pollIntervalMs: 10 }],
-      ["opencode_run", { sessionId: "session", prompt: "unused", maxDurationSeconds: 0.06 }],
-      ["opencode_ask", { prompt: "unused" }], ["opencode_reply", { sessionId: "session", prompt: "unused" }],
-      ["opencode_job_input", { jobId: f.started.jobId }],
-    ] as const) {
-      const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 70);
-      const before = reads;
-      try { const output = await handlers.get(name)!(args, { signal: controller.signal }); expect(output.structuredContent.status).toBe("unknown"); expect(reads).toBeGreaterThan(before); }
-      finally { clearTimeout(timer); }
+  // The deadlines/abort below are driven by a controlled clock: time advances only after the first real
+  // (file-backed) unknown read has completed, so slow I/O cannot expire the observation before that read.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  try {
+    for (let n = 0; n < 2; n++) {
+      for (const [name, args] of [
+        ["opencode_wait", { jobId: f.started.jobId, timeoutSeconds: 0.06, pollIntervalMs: 10 }],
+        ["opencode_run", { sessionId: "session", prompt: "unused", maxDurationSeconds: 0.06 }],
+        ["opencode_ask", { prompt: "unused" }], ["opencode_reply", { sessionId: "session", prompt: "unused" }],
+        ["opencode_job_input", { jobId: f.started.jobId }],
+      ] as const) {
+        const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 70);
+        const before = reads; const firstRead = new Promise<void>(resolve => { onRead = resolve; });
+        try {
+          const pending = handlers.get(name)!(args, { signal: controller.signal });
+          await Promise.race([firstRead, pending]); await new Promise<void>(resolve => setImmediate(resolve)); await vi.advanceTimersByTimeAsync(70);
+          const output = await pending; expect(output.structuredContent.status).toBe("unknown"); expect(reads).toBeGreaterThan(before);
+        } finally { clearTimeout(timer); }
+      }
     }
-  }
+  } finally { vi.useRealTimers(); onRead = undefined; }
   const cancelled = await handlers.get("opencode_job_cancel")!({ jobId: f.started.jobId });
   expect(cancelled.isError).toBe(true); expect(cancelled.content[0].text).toContain("ownership is not established");
   expect(cancelled.content[0].text).not.toContain("Job observation lost");
