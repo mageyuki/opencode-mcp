@@ -7,13 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - Prepared, not published
+
+Dependency and toolchain refresh of `@mageyuki/opencode-mcp`. `3.1.0` is published on npm (`latest`, 2026-10-13); `3.2.0` is prepared and not yet published.
+
+### Changed
+
+- MCP SDK: `@modelcontextprotocol/core` and `@modelcontextprotocol/server` 2.2.0 → 2.3.1 (exact pins, bumped together); dev `@modelcontextprotocol/client` 2.2.0 → 2.3.1 and `@modelcontextprotocol/sdk` 1.31.0 → 1.32.1.
+- OpenCode V2 client: `@opencode/client` 2.0.6 → 2.0.32 (exact pin; its protocol/schema packages follow it). `@opencode-ai/sdk` → `^1.19.3`, `zod` → `^4.6.7`. Dev tooling: `@types/node` `^24`, `vitest` and `@vitest/coverage-v8` `^5`, `typescript` `^7` (`tsconfig.json` now lists `"types": ["node"]`).
+- Integration targets and the isolated compatibility fixture now use `opencode-ai@1.19.3` and `@opencode/cli@2.0.32`; the doctor reports these as the integration target versions.
+- CI and maintenance policy follow the latest Node.js 24 series and the npm 12 series, asserting majors only; `engines.node` stays `>=24.0.0 <25`.
+- `dependency-lock.json` remains a byte-identical copy of the regenerated `package-lock.json`.
+
+### Fixed
+
+- V2 adapter compatibility with `@opencode/client` 2.0.32: the client now keeps a base-URL path prefix itself, so the adapter no longer prepends it (it would have been doubled), and `project.list` takes `(input, options)`. Behavior of the tools is unchanged.
+
+## [3.1.0] - 2026-10-13
+
+First published release of `@mageyuki/opencode-mcp` (npm, dist-tag `latest`). The entries below are the notes written while 3.1.0 was being prepared; statements about publication status reflect that time, not the present.
+
 ### Stable 3.1.0 packaging (`@mageyuki/opencode-mcp`)
 
-- On 2026-10-13 the user chose stable `3.1.0` with dist-tag `latest` as the release target for this fork, instead of the earlier unpublished `3.1.0-rc.1` / `rc` candidate. Only version metadata, the dist-tag, install examples and release notes change; dependencies, the lock graph, source and runtime are unchanged. `3.1.0` is awaiting manual publication and is not released until npm confirms it. The upstream `3.1.0-rc.1` entry below is historical and is not rewritten.
+- On 2026-10-13 the user chose stable `3.1.0` with dist-tag `latest` as the release target for this fork, instead of the earlier unpublished `3.1.0-rc.1` / `rc` candidate. Only version metadata, the dist-tag, install examples and release notes change; dependencies, the lock graph, source and runtime are unchanged. At the time of writing `3.1.0` was awaiting manual publication; it was published on 2026-10-13. The upstream `3.1.0-rc.1` entry below is historical and is not rewritten.
 
 ### Fork packaging (`@mageyuki/opencode-mcp`)
 
-- Unofficial fork of `AlaeddineMessadi/opencode-mcp` at `1b9552bebaf648e7dd989f3d48515d3c116c154e` (`3.1.0-rc.1`). The package is renamed to `@mageyuki/opencode-mcp`, keeps the version number `3.1.0-rc.1` of its upstream base, and keeps the `opencode-mcp` executable and MCP server name. Nothing is published yet; see [FORK.md](FORK.md).
+- Unofficial fork of `AlaeddineMessadi/opencode-mcp` at `1b9552bebaf648e7dd989f3d48515d3c116c154e` (`3.1.0-rc.1`). The package is renamed to `@mageyuki/opencode-mcp`, keeps the version number `3.1.0-rc.1` of its upstream base, and keeps the `opencode-mcp` executable and MCP server name. Nothing was published at that point (historical; `3.1.0` was later published); see [FORK.md](FORK.md).
 - Includes the divergence patch `pr29-live-observation.patch` (SHA-256 `3368e44bbef0f3e00d156ef878e19b5055624689952dac5d86cca7955583b1a0`): V2 live observation and execution evidence, guarded project read tools (essential profile 25 → 28 tools), and a Herdr origin marker.
 - Ships `dependency-lock.json`, an unchanged copy of `package-lock.json`, for manual dependency restore in an extracted package root (npm 12 does not honor `npm-shrinkwrap.json`; the file is not used automatically). See [FORK.md](FORK.md).
 - Regenerated `docs/tools.md` for those source changes; install commands and registry metadata use the scoped name. Package verification scripts accept the scoped name and npm 12's object-form `npm pack --json` output, and check the shipped lock.

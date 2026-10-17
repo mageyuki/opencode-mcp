@@ -12,7 +12,7 @@ The full and essential profiles keep their existing names and schemas. An unavai
 - **unsupported:** an intentional V1-only exception for this milestone.
 - **blocked:** a required operation could not preserve the public behavior with the pinned upstream contract. It remains an outstanding compatibility limitation.
 
-The integration targets are OpenCode V1 `opencode-ai@1.18.31` and OpenCode V2 `@opencode/cli@2.0.6`, with `@opencode/client@2.0.6` pinned. Version recognition and fixture coverage are separate from [live verification evidence](releasing.md). Doctor reports the target version without claiming that a live integration check has passed.
+The integration targets are OpenCode V1 `opencode-ai@1.19.3` and OpenCode V2 `@opencode/cli@2.0.32`, with `@opencode/client@2.0.32` pinned. Version recognition and fixture coverage are separate from [live verification evidence](releasing.md). Doctor reports the target version without claiming that a live integration check has passed.
 
 V2 whole-message reverts remain staged and reversible. Because upstream 2.0.6 automatically commits staged reverts when prompting or compacting, the bridge rejects those operations until the revert is cleared with `opencode_session_unrevert` or explicitly committed outside the bridge.
 

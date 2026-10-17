@@ -1,6 +1,6 @@
 {
   "name": "@mageyuki/opencode-mcp",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Unofficial fork of opencode-mcp: MCP server for OpenCode coding workflows, durable async jobs, project resources, and explicit user input, with V2 live-observation and guarded project-read changes",
   "type": "module",
   "main": "dist/index.js",
@@ -64,18 +64,18 @@
     "node": ">=24.0.0 <25"
   },
   "dependencies": {
-    "@modelcontextprotocol/core": "2.2.0",
-    "@modelcontextprotocol/server": "2.2.0",
-    "@opencode-ai/sdk": "^1.18.31",
-    "@opencode/client": "2.0.6",
-    "zod": "^4.6.5"
+    "@modelcontextprotocol/core": "2.3.1",
+    "@modelcontextprotocol/server": "2.3.1",
+    "@opencode-ai/sdk": "^1.19.3",
+    "@opencode/client": "2.0.32",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.2.0",
-    "@modelcontextprotocol/sdk": "1.31.0",
-    "@types/node": "^22.0.0",
-    "@vitest/coverage-v8": "^4.1.11",
-    "typescript": "^5.7.0",
-    "vitest": "^4.0.18"
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   }
 }
