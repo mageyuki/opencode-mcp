@@ -39,8 +39,8 @@ async function assertPortClosed(port) {
 }
 
 export const targets = Object.freeze({
-  v1: { package: "opencode-ai", version: "1.18.31", health: "/global/health" },
-  v2: { package: "@opencode/cli", version: "2.0.6", health: "/api/info" },
+  v1: { package: "opencode-ai", version: "1.19.3", health: "/global/health" },
+  v2: { package: "@opencode/cli", version: "2.0.32", health: "/api/info" },
 });
 
 export function compatibilityOptions(argv) {

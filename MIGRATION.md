@@ -1,6 +1,6 @@
 # OpenCode V1/V2 compatibility migration
 
-The compatibility foundation preserves the existing V1 SDK and V1 job records. It adds the pinned `@opencode/client@2.0.6` adapter, explicit backend detection, and a read-only doctor. An API mapping is not proof of live end-to-end behavior: consult the [release verification guide](docs/releasing.md) and record actual backend check results separately.
+The compatibility foundation preserves the existing V1 SDK and V1 job records. It adds the pinned `@opencode/client@2.0.32` adapter, explicit backend detection, and a read-only doctor. An API mapping is not proof of live end-to-end behavior: consult the [release verification guide](docs/releasing.md) and record actual backend check results separately.
 
 ## Select a backend
 

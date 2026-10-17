@@ -111,7 +111,7 @@ describe("retained compatibility archives", () => {
 function diagnostic(configured: boolean) {
   return { schemaVersion: 1, ready: configured, checks: ["node", "configuration", "backend", "authentication", "supported_version", "project_access", "lifecycle"].map(id => ({ id, status: "pass" })).concat([
     { id: "provider_configuration", status: configured ? "pass" : "fail", message: configured ? "Provider configured" : "No configured provider was found." } as any,
-  ]), backend: { version: "2.0.6", integrationTargetVersion: "2.0.6", matchesIntegrationTarget: true, processOwnership: "external", connectionSource: "explicit", survivesDisconnect: true } };
+  ]), backend: { version: "2.0.32", integrationTargetVersion: "2.0.32", matchesIntegrationTarget: true, processOwnership: "external", connectionSource: "explicit", survivesDisconnect: true } };
 }
 describe("native doctor contract assertions", () => {
   it.each([false, true])("accepts accurate readiness when configured=%s", configured => {

@@ -2,7 +2,7 @@
 
 ## Setup
 
-Use Node.js 24.x (`>=24.0.0 <25`) and Git; the CI workflow is configured for exactly Node.js 24.18.0 with npm 12.0.1 on Ubuntu (configuration target; see [FORK.md](FORK.md) for current qualification status). Fork and clone the repository, then:
+Use Node.js 24.x (`>=24.0.0 <25`) and Git; the CI workflow runs the latest Node.js 24 series with the npm 12 series on Ubuntu (configuration target; see [FORK.md](FORK.md) for current qualification status). Fork and clone the repository, then:
 
 ```bash
 npm ci

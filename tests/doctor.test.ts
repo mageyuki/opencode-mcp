@@ -8,7 +8,7 @@ import { parseCliArgs } from "../src/cli.js";
 import { BackendDetectionError, type DetectedBackend } from "../src/backend-detection.js";
 import type { OpenCodeClient } from "../src/client.js";
 
-const connection: DetectedBackend = { baseUrl: "http://fixture.test", identity: { kind: "v1", version: "1.18.31", connectionSource: "explicit", processOwnership: "external", survivesDisconnect: true } };
+const connection: DetectedBackend = { baseUrl: "http://fixture.test", identity: { kind: "v1", version: "1.19.3", connectionSource: "explicit", processOwnership: "external", survivesDisconnect: true } };
 const check = (report: Awaited<ReturnType<typeof runDoctor>>, id: string) => report.checks.find(check => check.id === id)!;
 function dependencies(handler?: (path: string) => Promise<unknown>) {
   const get = vi.fn(handler ?? (async (path: string) => path === "/provider" ? { all: [{ id: "fixture", source: "env" }] } : { id: "project", worktree: "/remote/project" }));
@@ -31,7 +31,7 @@ describe("read-only doctor", () => {
     const deps = dependencies();
     const report = await runDoctor({ ...deps, env: {}, directory: "/remote/project" });
     expect(report.ready).toBe(true); expect(report.schemaVersion).toBe(1);
-    expect(report.backend).toMatchObject({ kind: "v1", integrationTargetVersion: "1.18.31", matchesIntegrationTarget: true });
+    expect(report.backend).toMatchObject({ kind: "v1", integrationTargetVersion: "1.19.3", matchesIntegrationTarget: true });
     expect(deps.detect).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ allowStartup: false, signal: expect.any(AbortSignal) }), undefined);
     expect(deps.get.mock.calls.map(call => call[0])).toEqual(["/provider", "/project/current"]);
     expect(check(report, "provider_configuration").message).toContain("no inference");
@@ -123,7 +123,7 @@ describe("doctor CLI process", () => {
     const requests: string[] = [];
     http = createServer((req, res) => {
       requests.push(`${req.method} ${req.url}`); res.setHeader("content-type", "application/json");
-      if (req.url === "/global/health") res.end(JSON.stringify({ healthy: true, version: "1.18.31" }));
+      if (req.url === "/global/health") res.end(JSON.stringify({ healthy: true, version: "1.19.3" }));
       else if (req.url?.startsWith("/provider")) res.end(JSON.stringify({ all: configured ? [{ id: "fixture", source: "env", options: { apiKey: "secret-sentinel" } }] : [] }));
       else res.end(JSON.stringify({ id: "project", worktree: "/remote/project" }));
     });

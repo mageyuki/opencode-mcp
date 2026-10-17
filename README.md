@@ -4,13 +4,13 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![node](https://img.shields.io/node/v/@mageyuki/opencode-mcp)](https://nodejs.org/)
 
-> **Unofficial fork.** This package is not published or endorsed by the upstream author. It is derived from [AlaeddineMessadi/opencode-mcp](https://github.com/AlaeddineMessadi/opencode-mcp) commit `1b9552bebaf648e7dd989f3d48515d3c116c154e` plus one divergence patch (V2 live observation, execution evidence, guarded project read, Herdr origin marker). The upstream project and its `opencode-mcp` package are separate. Fork identity, exact differences, and the pending publication status are in [FORK.md](FORK.md). The fork repository exists; the npm registry links in this file stay pending until the package is actually published.
+> **Unofficial fork.** This package is not published or endorsed by the upstream author. It is derived from [AlaeddineMessadi/opencode-mcp](https://github.com/AlaeddineMessadi/opencode-mcp) commit `1b9552bebaf648e7dd989f3d48515d3c116c154e` plus one divergence patch (V2 live observation, execution evidence, guarded project read, Herdr origin marker). The upstream project and its `opencode-mcp` package are separate. Fork identity, exact differences, and the publication status are in [FORK.md](FORK.md). `3.1.0` is published on npm with the `latest` tag; the install examples below use that published version.
 
 **Delegate coding work to OpenCode from your MCP client.**
 
 opencode-mcp connects Claude, Cursor, VS Code, and other MCP clients to OpenCode's headless API. Ask questions, implement features, monitor background work, respond to questions and permissions, and review changes across projects.
 
-> This fork declares **Node.js 24.x** (`>=24.0.0 <25`); upstream 3.0.0 historically required Node.js 22 or newer, which this fork no longer supports. The CI workflow is configured for exactly Node.js 24.18.0 with npm 12.0.1 on Ubuntu; it has not yet run on this change, so this is a configuration target, not a CI result. Qualification is incomplete (see [FORK.md](FORK.md)). Upgrading from 2.x? See the [migration notes](CHANGELOG.md#300---2026-09-16).
+> This fork declares **Node.js 24.x** (`>=24.0.0 <25`); upstream 3.0.0 historically required Node.js 22 or newer, which this fork no longer supports. The CI workflow runs the latest Node.js 24 series with the npm 12 series on Ubuntu (a configuration target; see [FORK.md](FORK.md) for qualification status). Upgrading from 2.x? See the [migration notes](CHANGELOG.md#300---2026-09-16).
 
 This source branch adds an OpenCode V1/V2 compatibility foundation. It retains the V1 API and adds the pinned V2 client contract. V2 currently maps **64 tools**, keeps **22 V1-only exceptions**, and blocks **1 command operation** whose completion cannot be correlated safely. See the [generated compatibility inventory](docs/compatibility.md) and [V1/V2 migration guide](MIGRATION.md). This is not a claim that every live backend workflow has been verified.
 

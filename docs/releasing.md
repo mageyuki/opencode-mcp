@@ -2,7 +2,7 @@
 
 ## V1/V2 evidence requirements
 
-The compatibility foundation targets `opencode-ai@1.18.31` for V1 and `@opencode/cli@2.0.6` for V2, with `@opencode/client@2.0.6` pinned. Run each in a disposable installation and isolated state directory. Do not replace a global OpenCode executable or attach to a user's shared service for mutation tests.
+The compatibility foundation targets `opencode-ai@1.19.3` for V1 and `@opencode/cli@2.0.32` for V2, with `@opencode/client@2.0.32` pinned. Run each in a disposable installation and isolated state directory. Do not replace a global OpenCode executable or attach to a user's shared service for mutation tests.
 
 Fixture tests verify transport contracts, normalization, request guards, job correlation, and CLI behavior. They do not establish live model/provider compatibility. Likewise, doctor's `matchesIntegrationTarget` is a version comparison, not live verification evidence. Record the exact backend, command, exit status, covered operations, and skipped capabilities for each live run. Inference must remain opt-in with an explicitly selected provider/model.
 
@@ -85,7 +85,7 @@ The runner sends a text-only request through `opencode_fire`, checks progress, w
    npm run test:package
    npm run test:compat
    ```
-   Confirm the required CI run (Ubuntu, Node.js 24.18.0, npm 12.0.1) passed on the exact release commit. Record the tested OpenCode version. The default fixture smoke checks should pass; explicitly select a provider/model when validating inference. Record skipped live capabilities accurately.
+   Confirm the required CI run (Ubuntu, latest Node.js 24 series, npm 12 series) passed on the exact release commit. Record the tested OpenCode version. The default fixture smoke checks should pass; explicitly select a provider/model when validating inference. Record skipped live capabilities accurately.
 
 4. **Inspect and test the actual archive.**
    ```bash
@@ -94,10 +94,10 @@ The runner sends a text-only request through `opencode_fire`, checks progress, w
    ```
    Inspect the file list and package metadata. Install the produced archive in a fresh temporary directory, using production dependencies only, then exercise its executable through an MCP client: initialization, tool discovery, a fixture-backed health call, and clean stdio shutdown. Repeat on the supported OS/runtime matrix where practical. This catches missing runtime dependencies or generated files that source-tree tests cannot detect. Record the archive's `integrity` value from the pack result.
 
-5. **Publish the tested archive after release authorization.** Verify the registry account with `npm whoami`, publish that exact `.tgz`, and complete any registry-required authentication. The accepted release for this fork is stable `3.1.0` with dist-tag `latest` (`publishConfig.tag`); the earlier `3.1.0-rc.1` / `rc` candidate is not published by it. Registry login and publication are interactive user actions performed manually, not automated. Published versions are immutable, so any later release needs a new version, and any move of a tag needs its own explicit tag decision. Avoid rebuilding between archive verification and publication. If npm rejects a reserved version, select a new version and repeat metadata, checks, packing, and archive validation before retrying.
+5. **Publish the tested archive after release authorization.** Verify the registry account with `npm whoami`, publish that exact `.tgz`, and complete any registry-required authentication. This fork publishes stable releases with dist-tag `latest` (`publishConfig.tag`): `3.1.0` is published, and `3.2.0` is the prepared next release; the earlier `3.1.0-rc.1` / `rc` candidate was never published. Registry login and publication are interactive user actions performed manually, not automated. Published versions are immutable, so any later release needs a new version, and any move of a tag needs its own explicit tag decision. Avoid rebuilding between archive verification and publication. If npm rejects a reserved version, select a new version and repeat metadata, checks, packing, and archive validation before retrying.
 
 6. **Verify the registry artifact.**
    ```bash
    npm view @mageyuki/opencode-mcp@VERSION version dist.integrity dist-tags --json
    ```
-   Compare `dist.integrity` with the tested archive's integrity and confirm `dist-tags.latest` points to the intended version (`3.1.0` for this release). Install the exact published version in another clean directory and rerun the package smoke checks. Create the matching Git tag and GitHub release with migration notes and validation evidence. Do not describe a release as published until npm confirms it and these post-publication checks pass.
+   Compare `dist.integrity` with the tested archive's integrity and confirm `dist-tags.latest` points to the intended version (`3.2.0` for the prepared release). Install the exact published version in another clean directory and rerun the package smoke checks. Create the matching Git tag and GitHub release with migration notes and validation evidence. Do not describe a release as published until npm confirms it and these post-publication checks pass.

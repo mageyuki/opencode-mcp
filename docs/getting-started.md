@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js **24.x** (`>=24.0.0 <25`) for this fork. Upstream 3.0.0 historically required Node.js 22 or newer; this fork's CI workflow is configured only for exact Node.js 24.18.0 with npm 12.0.1 (a configuration target, not a CI result; see [FORK.md](../FORK.md)).
+- Node.js **24.x** (`>=24.0.0 <25`) for this fork. Upstream 3.0.0 historically required Node.js 22 or newer; this fork's CI workflow runs the latest Node.js 24 series with the npm 12 series (a configuration target, not a CI result; see [FORK.md](../FORK.md)).
 - [OpenCode](https://opencode.ai/docs/) installed and a provider configured for model calls.
 - An MCP client capable of launching a stdio server.
 
